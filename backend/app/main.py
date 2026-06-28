@@ -21,6 +21,7 @@ app.include_router(dealer_router)
 app.mount("/images", StaticFiles(directory=str(config.IMAGE_CACHE_DIR)), name="images")
 app.mount("/css", StaticFiles(directory=str(config.FRONTEND_DIR / "css")), name="css")
 app.mount("/js", StaticFiles(directory=str(config.FRONTEND_DIR / "js")), name="js")
+app.mount("/assets", StaticFiles(directory=str(config.FRONTEND_DIR / "assets")), name="assets")
 
 
 @app.on_event("startup")

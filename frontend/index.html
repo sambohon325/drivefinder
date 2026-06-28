@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+<div class="page">
 
 <nav class="topnav">
   <a href="/" class="brand">DriveFinder<span class="dot">.</span><span class="brand-sub">&nbsp;by Vicimus</span></a>
@@ -20,61 +21,71 @@
   </div>
 </nav>
 
-<!-- Intro gate: capture location before opening the chat, same compliance
-     gate as the original prototype (keyword-based placeholder — swap for a
-     real zip lookup before this leaves testing). -->
-<main id="gate" class="gate">
-  <div class="gate-card">
-    <div class="gate-eyebrow">Step out of the dealership</div>
-    <h1 class="gate-title">Tell us what you're picturing.<br/>We'll build it as we go.</h1>
-    <p class="gate-sub">No tabs, no test-drive ambush. Talk it through and watch your car come together in real time.</p>
-    <form class="gate-form" id="gate-form">
-      <input type="text" id="gate-location" placeholder="City and state, or ZIP code" required />
-      <button type="submit" class="btn btn-primary">Start</button>
-    </form>
-    <div id="gate-blocked" class="gate-blocked" style="display:none;"></div>
+<div class="view-stage">
+  <!-- Intro gate: capture location before opening the chat, same compliance
+       gate as the original prototype (keyword-based placeholder — swap for a
+       real zip lookup before this leaves testing). -->
+  <main id="gate" class="view view-gate is-active">
+    <div class="gate-card">
+      <div class="gate-eyebrow">Step out of the dealership</div>
+      <h1 class="gate-title">Tell us what you're picturing.<br/>We'll build it as we go.</h1>
+      <p class="gate-sub">No tabs, no test-drive ambush. Talk it through and watch your car come together in real time.</p>
+      <form class="gate-form" id="gate-form">
+        <input type="text" id="gate-location" placeholder="City and state, or ZIP code" required />
+        <button type="submit" class="btn btn-primary">Start</button>
+      </form>
+      <div id="gate-blocked" class="gate-blocked" style="display:none;"></div>
+    </div>
+  </main>
+
+  <!-- Main app shell, faded in once the gate passes -->
+  <div id="app-shell" class="view view-app">
+    <section class="chat-pane">
+      <div class="chat-thread" id="chat-thread"></div>
+      <form class="chat-input-bar" id="chat-form">
+        <input type="text" id="chat-input" placeholder="Tell me what you're looking for…" autocomplete="off" />
+        <button type="submit" class="btn btn-primary">Send</button>
+      </form>
+    </section>
+
+    <aside class="build-panel">
+      <div class="build-header">
+        <h2>Your build</h2>
+        <span class="badge badge-standard" id="build-status">Not started</span>
+      </div>
+
+      <div class="build-rail">
+        <div class="rail-step" id="rail-1"></div>
+        <div class="rail-step" id="rail-2"></div>
+        <div class="rail-step" id="rail-3"></div>
+      </div>
+
+      <div class="build-stage" id="build-stage">
+        <div class="placeholder">Once you pick a make and model,<br/>your build will start rendering here.</div>
+      </div>
+
+      <div class="build-thumbs" id="build-thumbs"></div>
+
+      <div class="spec-chips" id="spec-chips">
+        <span class="chip" id="chip-make">Make —</span>
+        <span class="chip" id="chip-model">Model —</span>
+        <span class="chip" id="chip-color">Color —</span>
+        <span class="chip" id="chip-body">Body —</span>
+      </div>
+
+      <div class="build-cta">
+        <button class="btn btn-primary btn-block" id="continue-btn" disabled>Continue to delivery &amp; financing</button>
+      </div>
+    </aside>
   </div>
-</main>
+</div>
 
-<!-- Main app shell, hidden until the gate passes -->
-<div id="app-shell" class="app-shell" hidden>
-  <section class="chat-pane">
-    <div class="chat-thread" id="chat-thread"></div>
-    <form class="chat-input-bar" id="chat-form">
-      <input type="text" id="chat-input" placeholder="Tell me what you're looking for…" autocomplete="off" />
-      <button type="submit" class="btn btn-primary">Send</button>
-    </form>
-  </section>
+<footer class="site-footer">
+  <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">
+    <img src="/assets/vicimus-logo.svg" alt="Vicimus" class="footer-logo" />
+  </a>
+</footer>
 
-  <aside class="build-panel">
-    <div class="build-header">
-      <h2>Your build</h2>
-      <span class="badge badge-standard" id="build-status">Not started</span>
-    </div>
-
-    <div class="build-rail">
-      <div class="rail-step" id="rail-1"></div>
-      <div class="rail-step" id="rail-2"></div>
-      <div class="rail-step" id="rail-3"></div>
-    </div>
-
-    <div class="build-stage" id="build-stage">
-      <div class="placeholder">Once you pick a make and model,<br/>your build will start rendering here.</div>
-    </div>
-
-    <div class="build-thumbs" id="build-thumbs"></div>
-
-    <div class="spec-chips" id="spec-chips">
-      <span class="chip" id="chip-make">Make —</span>
-      <span class="chip" id="chip-model">Model —</span>
-      <span class="chip" id="chip-color">Color —</span>
-      <span class="chip" id="chip-body">Body —</span>
-    </div>
-
-    <div class="build-cta">
-      <button class="btn btn-primary btn-block" id="continue-btn" disabled>Continue to delivery &amp; financing</button>
-    </div>
-  </aside>
 </div>
 
 <!-- Auth modal (sign in / sign up) -->

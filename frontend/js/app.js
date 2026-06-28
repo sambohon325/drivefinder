@@ -77,8 +77,8 @@
 
   async function openChat(turn) {
     state.sessionId = turn.session_id;
-    el("gate").hidden = true;
-    el("app-shell").hidden = false;
+    el("gate").classList.remove("is-active");
+    el("app-shell").classList.add("is-active");
     appendMessage("assistant", turn.response_text);
   }
 

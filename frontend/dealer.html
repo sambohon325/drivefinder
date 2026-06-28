@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+<div class="page">
 
 <nav class="topnav">
   <a href="/" class="brand">DriveFinder<span class="dot">.</span><span class="brand-sub">&nbsp;for Dealers</span></a>
@@ -19,64 +20,74 @@
   </div>
 </nav>
 
-<!-- Dealer auth gate -->
-<main id="dealer-gate" class="dealer-gate">
-  <div class="gate-card" style="max-width:420px;">
-    <div class="dealer-eyebrow">Dealer access</div>
-    <h1 class="dealer-title">Get matched leads<br/>without the busywork.</h1>
-    <p class="dealer-sub">Vicimus clients get DriveFinder leads free, synced straight to your inventory. Not a client yet? Start a 30-day trial.</p>
+<div class="page-content">
+  <!-- Dealer auth gate -->
+  <main id="dealer-gate" class="dealer-gate">
+    <div class="gate-card" style="max-width:420px;">
+      <div class="dealer-eyebrow">Dealer access</div>
+      <h1 class="dealer-title">Get matched leads<br/>without the busywork.</h1>
+      <p class="dealer-sub">Vicimus clients get DriveFinder leads free, synced straight to your inventory. Not a client yet? Start a 30-day trial.</p>
 
-    <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="signin">Sign in</button>
-      <button class="modal-tab" data-tab="signup">Start free trial</button>
-    </div>
-    <div class="modal-error" id="dealer-error" hidden></div>
-    <form id="dealer-auth-form">
-      <div class="field" id="dealer-name-field" hidden>
-        <label for="dealer-name">Dealership name</label>
-        <input type="text" id="dealer-name" />
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="signin">Sign in</button>
+        <button class="modal-tab" data-tab="signup">Start free trial</button>
       </div>
-      <div class="field">
-        <label for="dealer-email">Work email</label>
-        <input type="email" id="dealer-email" required />
+      <div class="modal-error" id="dealer-error" hidden></div>
+      <form id="dealer-auth-form">
+        <div class="field" id="dealer-name-field" hidden>
+          <label for="dealer-name">Dealership name</label>
+          <input type="text" id="dealer-name" />
+        </div>
+        <div class="field">
+          <label for="dealer-email">Work email</label>
+          <input type="email" id="dealer-email" required />
+        </div>
+        <div class="field">
+          <label for="dealer-password">Password</label>
+          <input type="password" id="dealer-password" required minlength="8" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="dealer-submit">Sign in</button>
+      </form>
+      <p class="modal-sub" style="margin-top:16px;">Already on Vicimus? Your dealership rep can flag your account as a client at no charge — leads, inventory sync included.</p>
+    </div>
+  </main>
+
+  <!-- Dashboard -->
+  <main id="dealer-dashboard" class="dealer-shell is-hidden">
+    <div class="banner" id="status-banner"></div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Open leads</div>
+        <div class="stat-value" id="stat-leads">0</div>
       </div>
-      <div class="field">
-        <label for="dealer-password">Password</label>
-        <input type="password" id="dealer-password" required minlength="8" />
+      <div class="stat-card">
+        <div class="stat-label">Inventory sync</div>
+        <div class="stat-value" id="stat-sync" style="font-size:16px;">—</div>
       </div>
-      <button type="submit" class="btn btn-primary btn-block" id="dealer-submit">Sign in</button>
-    </form>
-    <p class="modal-sub" style="margin-top:16px;">Already on Vicimus? Your dealership rep can flag your account as a client at no charge — leads, inventory sync included.</p>
-  </div>
-</main>
+      <div class="stat-card">
+        <div class="stat-label">Account</div>
+        <div class="stat-value" id="stat-account" style="font-size:16px;">—</div>
+      </div>
+    </div>
 
-<!-- Dashboard -->
-<main id="dealer-dashboard" class="dealer-shell" hidden>
-  <div class="banner" id="status-banner"></div>
+    <div class="panel">
+      <div class="panel-header">
+        <h3>Recent leads</h3>
+        <span class="badge badge-standard">Live preview — routing not yet active</span>
+      </div>
+      <div id="leads-container"></div>
+    </div>
+  </main>
+</div>
 
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-label">Open leads</div>
-      <div class="stat-value" id="stat-leads">0</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Inventory sync</div>
-      <div class="stat-value" id="stat-sync" style="font-size:16px;">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Account</div>
-      <div class="stat-value" id="stat-account" style="font-size:16px;">—</div>
-    </div>
-  </div>
+<footer class="site-footer">
+  <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">
+    <img src="/assets/vicimus-logo.svg" alt="Vicimus" class="footer-logo" />
+  </a>
+</footer>
 
-  <div class="panel">
-    <div class="panel-header">
-      <h3>Recent leads</h3>
-      <span class="badge badge-standard">Live preview — routing not yet active</span>
-    </div>
-    <div id="leads-container"></div>
-  </div>
-</main>
+</div>
 
 <script src="/js/dealer.js"></script>
 </body>

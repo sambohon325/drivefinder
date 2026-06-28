@@ -9,8 +9,8 @@
   --ink: #ECEDEF;
   --ink-muted: #8A8D96;
   --ink-faint: #5A5D66;
-  --ignition: #FF7A30;
-  --ignition-soft: rgba(255, 122, 48, 0.14);
+  --ignition: #4DA8FF;
+  --ignition-soft: rgba(77, 168, 255, 0.14);
   --verified: #4FD1C5;
   --verified-soft: rgba(79, 209, 197, 0.14);
   --danger: #E5484D;
@@ -35,9 +35,29 @@ html, body {
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  height: 100%;
+  overflow: hidden;
 }
 
-body { min-height: 100vh; }
+body { height: 100vh; height: 100dvh; }
+
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Use this instead of the `hidden` attribute on any element whose own CSS
+   sets `display` (flex/grid/etc.) — author rules beat the browser's default
+   [hidden]{display:none}, so `el.hidden = true` alone silently fails on
+   those elements. This class wins because it's more specific + !important. */
+.is-hidden { display: none !important; }
 
 a { color: inherit; }
 
@@ -79,10 +99,10 @@ button {
 
 .btn-primary {
   background: var(--ignition);
-  color: #1A0D04;
+  color: #06182B;
   border-color: var(--ignition);
 }
-.btn-primary:hover { background: #ff8c4d; }
+.btn-primary:hover { background: #7AC2FF; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-ghost {
@@ -105,16 +125,15 @@ button {
 
 /* ===== Top nav ===== */
 .topnav {
-  height: 64px;
+  height: 60px;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border-soft);
   background: rgba(13, 14, 16, 0.85);
   backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
   z-index: 40;
 }
 
@@ -123,7 +142,7 @@ button {
   align-items: baseline;
   gap: 6px;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
   text-decoration: none;
@@ -151,9 +170,58 @@ button {
 }
 .nav-dealer-link:hover { color: var(--ink-muted); }
 
+/* ===== Footer (Vicimus attribution) ===== */
+.site-footer {
+  flex: 0 0 auto;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg);
+}
+.footer-logo-link {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.footer-logo-link:hover { opacity: 0.85; }
+.footer-logo { height: 13px; width: auto; display: block; }
+@media (max-width: 880px) {
+  .site-footer { height: 28px; }
+  .footer-logo { height: 10px; }
+}
+
+/* ===== View stage: gate and chat live in the same box, crossfading.
+   Using a class instead of the `hidden` attribute here is deliberate —
+   .view-gate/.view-app both set their own `display`, which is an author
+   rule and beats the browser's default [hidden]{display:none}, so
+   `hidden` alone silently fails to hide them. Visibility is controlled
+   entirely through .is-active instead. ===== */
+.view-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.view {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+.view.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 /* ===== Intro gate (location capture) ===== */
-.gate {
-  min-height: calc(100vh - 64px);
+.view-gate {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,27 +286,29 @@ input::placeholder { color: var(--ink-faint); }
 }
 
 /* ===== App shell (chat + build panel) ===== */
-.app-shell {
+.view-app {
   display: grid;
-  grid-template-columns: 1fr 440px;
-  height: calc(100vh - 64px);
+  grid-template-columns: 1fr 420px;
 }
 
 .chat-pane {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid var(--border-soft);
   min-width: 0;
 }
 
 .chat-thread {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 28px 28px 12px;
+  padding: 24px 24px 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+
 
 .msg {
   max-width: 72%;
@@ -256,7 +326,7 @@ input::placeholder { color: var(--ink-faint); }
 .msg-user {
   align-self: flex-end;
   background: var(--ignition-soft);
-  border: 1px solid rgba(255, 122, 48, 0.3);
+  border: 1px solid rgba(77, 168, 255, 0.3);
   color: var(--ink);
   border-bottom-right-radius: 4px;
 }
@@ -306,6 +376,7 @@ input::placeholder { color: var(--ink-faint); }
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  min-height: 0;
   padding: 22px;
 }
 
@@ -494,7 +565,7 @@ input::placeholder { color: var(--ink-faint); }
   background: transparent;
   border: none;
 }
-.modal-tab.active { background: var(--ignition); color: #1A0D04; }
+.modal-tab.active { background: var(--ignition); color: #06182B; }
 .modal-error {
   color: var(--danger);
   font-size: 13px;
@@ -541,10 +612,45 @@ input::placeholder { color: var(--ink-faint); }
 
 /* ===== Responsive ===== */
 @media (max-width: 880px) {
-  .app-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: calc(100vh - 64px); }
-  .build-panel { border-bottom: 1px solid var(--border-soft); max-height: 50vh; }
-  .chat-pane { border-right: none; }
+  .topnav { height: 52px; padding: 0 14px; }
+  .brand { font-size: 16px; }
+  .brand-sub { display: none; }
+  .nav-dealer-link { display: none; }
+
+  .view-app {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .build-panel {
+    order: 1;
+    flex: 0 0 auto;
+    max-height: 38dvh;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .build-header { margin-bottom: 8px; }
+  .build-header h2 { font-size: 14px; }
+  .build-rail { margin-bottom: 8px; }
+  .build-stage { margin-bottom: 8px; }
+  .build-thumbs { margin-bottom: 8px; padding-bottom: 8px; }
+  .build-thumbs img { width: 48px; height: 34px; }
+  .spec-chips { margin-bottom: 10px; gap: 6px; }
+  .chip { font-size: 10.5px; padding: 4px 9px; }
+  .build-cta .btn { padding: 9px 16px; font-size: 13px; }
+
+  .chat-pane {
+    order: 2;
+    flex: 1 1 auto;
+    min-height: 0;
+    border-right: none;
+  }
+  .chat-thread { padding: 16px 16px 10px; }
+  .msg { max-width: 86%; font-size: 14px; }
+  .chat-input-bar { padding: 12px 14px 16px; }
+
   .gate-form { flex-direction: column; }
+  .gate-title { font-size: 26px; }
   .stat-grid { grid-template-columns: 1fr; }
 }
 
@@ -605,7 +711,7 @@ input::placeholder { color: var(--ink-faint); }
   margin-bottom: 24px;
   font-size: 14px;
 }
-.banner.trial { border-color: rgba(255, 122, 48, 0.35); background: var(--ignition-soft); }
+.banner.trial { border-color: rgba(77, 168, 255, 0.35); background: var(--ignition-soft); }
 .banner.client { border-color: rgba(79, 209, 197, 0.35); background: var(--verified-soft); }
 
 .stat-grid {

@@ -43,18 +43,46 @@ def system_instruction() -> str:
     )
 
 
+LUXURY_MAKES = {"bmw", "maserati"}
+
+
+def _market_tier(make: str) -> str:
+    """Only BMW and Maserati are actual luxury marques in this inventory.
+    Calling a Camry or Civic 'luxury' in every prompt was nudging the image
+    model toward unrelated luxury-brand proportions (Bentley, BMW) instead of
+    the mainstream sedan it was actually supposed to be."""
+    return "luxury" if make.lower() in LUXURY_MAKES else "modern, well-equipped"
+
+
+def _identity_lock(make: str, model: str) -> str:
+    """Explicit anchor so the render actually looks like the selected
+    make/model rather than 'a generic car'. Without this, especially for
+    sedans, the model had nothing to hold onto and would substitute whatever
+    silhouette it associated with the surrounding studio/luxury language."""
+    return (
+        f"This must be immediately recognizable as a current-generation {make} {model} by its real body "
+        f"proportions, greenhouse shape, hood length, and overall silhouette — not a different make or model, "
+        f"and not a generic stand-in shape. Do not substitute the design language of an unrelated manufacturer "
+        f"(no Bentley, Rolls-Royce, Mercedes-Benz, or other unrelated marque proportions). The only thing "
+        f"altered from the real {make} {model} is branding: badges, grille emblems, and model-name text are "
+        f"removed, but the body itself stays true to the actual vehicle."
+    )
+
+
 def body_desc(make: str, model: str, body_style: str) -> str:
+    tier = _market_tier(make)
+    lock = _identity_lock(make, model)
     if body_style == "truck":
         return (
-            f"generic unbranded crew-cab pickup truck with a standard rear cargo bed box matching a modern "
-            f"mid-size {make} {model} truck footprint"
+            f"a {tier} crew-cab pickup truck matching the real cab and cargo-bed proportions of a {make} "
+            f"{model}. {lock}"
         )
     if body_style == "suv":
-        return f"generic unbranded mid-size luxury {make} {model} SUV crossover chassis body profile"
-    return (
-        "generic unbranded mid-size sedan chassis geometry capturing the signature elongated wheelbase "
-        "proportions"
-    )
+        return (
+            f"a {tier} {make} {model} SUV crossover, matching its real chassis height, greenhouse, and body "
+            f"profile. {lock}"
+        )
+    return f"a {tier} {make} {model} sedan, matching its real wheelbase and body proportions. {lock}"
 
 
 def color_modifier(color: str) -> str:
@@ -66,7 +94,7 @@ def color_modifier(color: str) -> str:
 def grey_clay_prompt(make: str, model: str, body_style: str) -> str:
     desc = body_desc(make, model, body_style)
     return (
-        f"A crisp, clear studio product photograph of a {desc}. The entire car body is completely wrapped in a "
+        f"A crisp, clear studio product photograph of {desc} The entire car body is completely wrapped in a "
         f"uniform, smooth matte unpolished light-grey vinyl film coating. All four wheels, multi-spoke rims, and "
         f"rubber tires are fully detailed and visible. Completely de-badged. A uniform 3/4 front passenger-side "
         f"perspective view angle. All window elements are clear unreflective glass. {STUDIO_PRESET}"
@@ -76,7 +104,7 @@ def grey_clay_prompt(make: str, model: str, body_style: str) -> str:
 def preview_card_prompt(make: str, model: str, body_style: str, color: str) -> str:
     desc = body_desc(make, model, body_style)
     return (
-        f"An immaculate photorealistic studio product photograph of a {desc}. {color_modifier(color)}, "
+        f"An immaculate photorealistic studio product photograph of {desc} {color_modifier(color)}, "
         f"glistening clear coat layer. All wheels, multi-spoke rims, and trim details fully rendered. Completely "
         f"emblem-free. {WINDOW_LOCK_RULE} A uniform 3/4 front passenger-side perspective view angle. "
         f"{STUDIO_PRESET}"
@@ -93,50 +121,53 @@ _ANGLE_TEXT = {
 def exterior_angle_prompt(make: str, model: str, body_style: str, color: str, angle: str) -> str:
     desc = body_desc(make, model, body_style)
     return (
-        f"An immaculate photorealistic studio product photograph of a {desc}. {color_modifier(color)}, "
+        f"An immaculate photorealistic studio product photograph of {desc} {color_modifier(color)}, "
         f"glistening clear coat layer. All wheels and trim details fully rendered. Completely emblem-free. "
         f"{_ANGLE_TEXT[angle]} {WINDOW_LOCK_RULE} {STUDIO_PRESET}"
     )
 
 
 def interior_cockpit_prompt(make: str, model: str) -> str:
+    tier = _market_tier(make)
     return (
         f"A premium studio first-person cockpit view looking directly forward from the driver's seat eye-line "
-        f"perspective inside a luxury {make} {model}. A prominent fully detailed black leather-wrapped modern "
+        f"perspective inside a {tier} {make} {model}, matching its real dashboard layout, steering wheel "
+        f"design, and instrument cluster style. A prominent fully detailed black leather-wrapped modern "
         f"steering wheel is positioned directly in front of the center field of view. Directly behind the "
         f"steering wheel, a fully active digital instrumentation gauge cluster and binnacle display is "
-        f"completely visible showing illuminated driver metrics. Premium soft saddle-brown stitched leather "
-        f"dashboard inserts flank the active multimedia screen array. The sunroof opening reveals a solid "
-        f"uniform soft diffuse studio illumination light box sky ceiling, strictly zero blue sky or clouds "
-        f"permitted. The view looking through the front windshield and all side window panes reveals nothing but "
-        f"a solid, completely uniform, boundless flat light-grey studio infinity cove backdrop with strictly zero "
-        f"external vehicles, zero structures, and zero background shapes permitted. Both wing mirrors visible "
-        f"through the windows are modified to be completely solid, blank, opaque matte black plastic textures "
+        f"completely visible showing illuminated driver metrics. Soft stitched dashboard inserts flank the "
+        f"active multimedia screen array. The sunroof opening reveals a solid uniform soft diffuse studio "
+        f"illumination light box sky ceiling, strictly zero blue sky or clouds permitted. The view looking "
+        f"through the front windshield and all side window panes reveals nothing but a solid, completely "
+        f"uniform, boundless flat light-grey studio infinity cove backdrop with strictly zero external "
+        f"vehicles, zero structures, and zero background shapes permitted. Both wing mirrors visible through "
+        f"the windows are modified to be completely solid, blank, opaque matte black plastic textures "
         f"containing zero reflections."
     )
 
 
 def interior_seating_prompt(make: str, model: str, body_style: str) -> str:
+    tier = _market_tier(make)
     if body_style == "suv":
         return (
             f"A high-fidelity studio detailed photograph taken inside the middle seat passenger cabin area of a "
-            f"modern luxury {make} {model} SUV. The middle passenger row features an immaculate, standalone set "
-            f"of premium saddle-brown leather captain's chairs with crisp diamond-quilted stitching. A clear, "
-            f"wide, completely empty dark carpeted center aisle pathway separates the chairs, and the third-row "
-            f"seating architecture is safely constrained far in the background distance. The detailed backs of "
-            f"the premium front driver and passenger bucket seats are clearly visible, normally positioned, and "
-            f"occupy the lower left and right foreground corners of the frame layout. The painted steel interior "
-            f"metal trim framework surrounding the seats is finished in a solid liquid metallic theme, strictly "
-            f"zero blue panels, zero red door accents. All side window profiles are heavily dark smoke tinted "
-            f"glass surfaces."
+            f"{tier} {make} {model} SUV, matching its real cabin width and seating layout. The middle "
+            f"passenger row features an immaculate, standalone set of leather captain's chairs with crisp "
+            f"diamond-quilted stitching. A clear, wide, completely empty dark carpeted center aisle pathway "
+            f"separates the chairs, and the third-row seating architecture is safely constrained far in the "
+            f"background distance. The detailed backs of the front driver and passenger bucket seats are "
+            f"clearly visible, normally positioned, and occupy the lower left and right foreground corners of "
+            f"the frame layout. The painted steel interior metal trim framework surrounding the seats is "
+            f"finished in a solid liquid metallic theme, strictly zero blue panels, zero red door accents. All "
+            f"side window profiles are heavily dark smoke tinted glass surfaces."
         )
     return (
         f"A high-fidelity studio detailed photograph taken inside the rear seat passenger row cabin area of a "
-        f"modern luxury {make} {model}. Immaculate uniform saddle-brown leather backseat upholstery textures "
-        f"with premium quilted diamond-stitching details. The detailed backs of the premium front driver and "
-        f"passenger bucket seats are clearly visible, normally positioned, and occupy the lower left and right "
-        f"foreground corners of the frame layout. The floor area between the seating rows is an empty, "
-        f"realistic wide spacious dark carpeted floor area. The painted steel interior metal trim framework "
-        f"surrounding the seats is finished in a solid liquid metallic theme, strictly zero blue panels, zero red "
-        f"door accents. All side window profiles are heavily dark smoke tinted glass surfaces."
+        f"{tier} {make} {model}, matching its real cabin width and seating layout. Immaculate uniform leather "
+        f"backseat upholstery textures with quilted diamond-stitching details. The detailed backs of the front "
+        f"driver and passenger bucket seats are clearly visible, normally positioned, and occupy the lower left "
+        f"and right foreground corners of the frame layout. The floor area between the seating rows is an "
+        f"empty, realistic wide spacious dark carpeted floor area. The painted steel interior metal trim "
+        f"framework surrounding the seats is finished in a solid liquid metallic theme, strictly zero blue "
+        f"panels, zero red door accents. All side window profiles are heavily dark smoke tinted glass surfaces."
     )

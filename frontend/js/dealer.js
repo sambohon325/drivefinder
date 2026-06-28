@@ -79,8 +79,8 @@
       return;
     }
 
-    el("dealer-gate").hidden = true;
-    el("dealer-dashboard").hidden = false;
+    el("dealer-gate").classList.add("is-hidden");
+    el("dealer-dashboard").classList.remove("is-hidden");
     el("nav-signout").hidden = false;
     el("nav-signout").addEventListener("click", async () => {
       await api("/api/auth/logout", { method: "POST" });
