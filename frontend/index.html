@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DriveFinder by Vicimus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="/" class="brand">DriveFinder<span class="dot">.</span><span class="brand-sub">&nbsp;by Vicimus</span></a>
+  <div class="nav-right">
+    <a href="/dealer" class="nav-dealer-link">Dealer login</a>
+    <button class="btn btn-text" id="nav-signin">Sign in</button>
+    <button class="btn btn-primary" id="nav-signup">Sign up</button>
+  </div>
+</nav>
+
+<!-- Intro gate: capture location before opening the chat, same compliance
+     gate as the original prototype (keyword-based placeholder — swap for a
+     real zip lookup before this leaves testing). -->
+<main id="gate" class="gate">
+  <div class="gate-card">
+    <div class="gate-eyebrow">Step out of the dealership</div>
+    <h1 class="gate-title">Tell us what you're picturing.<br/>We'll build it as we go.</h1>
+    <p class="gate-sub">No tabs, no test-drive ambush. Talk it through and watch your car come together in real time.</p>
+    <form class="gate-form" id="gate-form">
+      <input type="text" id="gate-location" placeholder="City and state, or ZIP code" required />
+      <button type="submit" class="btn btn-primary">Start</button>
+    </form>
+    <div id="gate-blocked" class="gate-blocked" style="display:none;"></div>
+  </div>
+</main>
+
+<!-- Main app shell, hidden until the gate passes -->
+<div id="app-shell" class="app-shell" hidden>
+  <section class="chat-pane">
+    <div class="chat-thread" id="chat-thread"></div>
+    <form class="chat-input-bar" id="chat-form">
+      <input type="text" id="chat-input" placeholder="Tell me what you're looking for…" autocomplete="off" />
+      <button type="submit" class="btn btn-primary">Send</button>
+    </form>
+  </section>
+
+  <aside class="build-panel">
+    <div class="build-header">
+      <h2>Your build</h2>
+      <span class="badge badge-standard" id="build-status">Not started</span>
+    </div>
+
+    <div class="build-rail">
+      <div class="rail-step" id="rail-1"></div>
+      <div class="rail-step" id="rail-2"></div>
+      <div class="rail-step" id="rail-3"></div>
+    </div>
+
+    <div class="build-stage" id="build-stage">
+      <div class="placeholder">Once you pick a make and model,<br/>your build will start rendering here.</div>
+    </div>
+
+    <div class="build-thumbs" id="build-thumbs"></div>
+
+    <div class="spec-chips" id="spec-chips">
+      <span class="chip" id="chip-make">Make —</span>
+      <span class="chip" id="chip-model">Model —</span>
+      <span class="chip" id="chip-color">Color —</span>
+      <span class="chip" id="chip-body">Body —</span>
+    </div>
+
+    <div class="build-cta">
+      <button class="btn btn-primary btn-block" id="continue-btn" disabled>Continue to delivery &amp; financing</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Auth modal (sign in / sign up) -->
+<div class="modal-overlay" id="auth-modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" id="auth-close">&times;</button>
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="signin">Sign in</button>
+      <button class="modal-tab" data-tab="signup">Sign up</button>
+    </div>
+    <h3 id="auth-title">Welcome back</h3>
+    <p class="modal-sub" id="auth-sub">Sign in to pick up where you left off.</p>
+    <div class="modal-error" id="auth-error" hidden></div>
+    <form id="auth-form">
+      <div class="field">
+        <label for="auth-email">Email</label>
+        <input type="email" id="auth-email" required />
+      </div>
+      <div class="field">
+        <label for="auth-password">Password</label>
+        <input type="password" id="auth-password" required minlength="8" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="auth-submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- Checkout modal: delivery -> financing -> sign up gate -> confirmation -->
+<div class="modal-overlay" id="checkout-modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" id="checkout-close">&times;</button>
+
+    <div class="checkout-step active" data-step="delivery">
+      <h3>How should it get to you?</h3>
+      <p class="modal-sub">Placeholder perks for now — final F&amp;I extras are being finalized.</p>
+      <div class="choice-group" id="delivery-choices">
+        <label class="choice-option"><input type="radio" name="delivery" value="home" checked /> Home delivery</label>
+        <label class="choice-option"><input type="radio" name="delivery" value="pickup" /> Pick up at the dealership</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="delivery-next">Continue</button>
+    </div>
+
+    <div class="checkout-step" data-step="financing">
+      <h3>How are you paying for it?</h3>
+      <p class="modal-sub">A soft check never affects your credit score.</p>
+      <div class="choice-group" id="financing-choices">
+        <label class="choice-option"><input type="radio" name="financing" value="independent" checked /> I'm financing independently / paying cash</label>
+        <label class="choice-option"><input type="radio" name="financing" value="dealer_financing" /> Explore financing options (soft check)</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="financing-next">Continue</button>
+    </div>
+
+    <div class="checkout-step" data-step="crosssell">
+      <h3>One quick check</h3>
+      <p class="modal-sub">If pricing or availability shifts slightly, can the dealer offer a close match?</p>
+      <div class="choice-group" id="crosssell-choices">
+        <label class="choice-option"><input type="radio" name="crosssell" value="yes" checked /> Yes, show me close matches</label>
+        <label class="choice-option"><input type="radio" name="crosssell" value="no" /> No, this exact vehicle only</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="crosssell-next">Continue</button>
+    </div>
+
+    <div class="checkout-step" data-step="confirm">
+      <h3>You're set</h3>
+      <p class="modal-sub">Here's what's heading to the dealer.</p>
+      <dl class="confirm-summary" id="confirm-summary"></dl>
+      <button class="btn btn-primary btn-block" id="confirm-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

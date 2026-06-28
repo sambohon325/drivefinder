@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DriveFinder for Dealers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<nav class="topnav">
+  <a href="/" class="brand">DriveFinder<span class="dot">.</span><span class="brand-sub">&nbsp;for Dealers</span></a>
+  <div class="nav-right">
+    <a href="/" class="nav-dealer-link">Consumer site</a>
+    <button class="btn btn-text" id="nav-signout" hidden>Sign out</button>
+  </div>
+</nav>
+
+<!-- Dealer auth gate -->
+<main id="dealer-gate" class="dealer-gate">
+  <div class="gate-card" style="max-width:420px;">
+    <div class="dealer-eyebrow">Dealer access</div>
+    <h1 class="dealer-title">Get matched leads<br/>without the busywork.</h1>
+    <p class="dealer-sub">Vicimus clients get DriveFinder leads free, synced straight to your inventory. Not a client yet? Start a 30-day trial.</p>
+
+    <div class="modal-tabs">
+      <button class="modal-tab active" data-tab="signin">Sign in</button>
+      <button class="modal-tab" data-tab="signup">Start free trial</button>
+    </div>
+    <div class="modal-error" id="dealer-error" hidden></div>
+    <form id="dealer-auth-form">
+      <div class="field" id="dealer-name-field" hidden>
+        <label for="dealer-name">Dealership name</label>
+        <input type="text" id="dealer-name" />
+      </div>
+      <div class="field">
+        <label for="dealer-email">Work email</label>
+        <input type="email" id="dealer-email" required />
+      </div>
+      <div class="field">
+        <label for="dealer-password">Password</label>
+        <input type="password" id="dealer-password" required minlength="8" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="dealer-submit">Sign in</button>
+    </form>
+    <p class="modal-sub" style="margin-top:16px;">Already on Vicimus? Your dealership rep can flag your account as a client at no charge — leads, inventory sync included.</p>
+  </div>
+</main>
+
+<!-- Dashboard -->
+<main id="dealer-dashboard" class="dealer-shell" hidden>
+  <div class="banner" id="status-banner"></div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Open leads</div>
+      <div class="stat-value" id="stat-leads">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Inventory sync</div>
+      <div class="stat-value" id="stat-sync" style="font-size:16px;">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Account</div>
+      <div class="stat-value" id="stat-account" style="font-size:16px;">—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>Recent leads</h3>
+      <span class="badge badge-standard">Live preview — routing not yet active</span>
+    </div>
+    <div id="leads-container"></div>
+  </div>
+</main>
+
+<script src="/js/dealer.js"></script>
+</body>
+</html>

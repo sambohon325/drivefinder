@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+backend/data/drivefinder.db
+backend/image_cache/
+.venv/
+*.egg-info/
+.DS_Store
