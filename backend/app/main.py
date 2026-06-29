@@ -1,5 +1,7 @@
 import asyncio
 import shutil
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
@@ -45,6 +47,24 @@ app.mount("/js", StaticFiles(directory=str(config.FRONTEND_DIR / "js")), name="j
 app.mount("/assets", StaticFiles(directory=str(config.FRONTEND_DIR / "assets")), name="assets")
 
 
+def _within_prewarm_window() -> bool:
+    """True if pre-warming should run right now, given PREWARM_RESTRICT_HOURS
+    and the configured start/end hour in PREWARM_TIMEZONE. Uses an explicit
+    IANA timezone rather than the container's system TZ, since that can vary
+    by deploy environment and silently mean something different than
+    intended.
+    """
+    if not config.PREWARM_RESTRICT_HOURS:
+        return True
+    start, end = config.PREWARM_ACTIVE_START_HOUR, config.PREWARM_ACTIVE_END_HOUR
+    if start == end:
+        return True  # equal start/end means "no restriction"
+    now_hour = datetime.now(ZoneInfo(config.PREWARM_TIMEZONE)).hour
+    if start < end:
+        return start <= now_hour < end
+    return now_hour >= start or now_hour < end  # window wraps past midnight
+
+
 async def _prewarm_loop():
     """Generates one missing render per interval, forever, until the cache
     is fully warm for the current inventory — then just keeps checking in
@@ -59,7 +79,7 @@ async def _prewarm_loop():
         backoff_multiplier = min(2 ** consecutive_failures, max_backoff_multiplier)
         await asyncio.sleep(config.PREWARM_INTERVAL_SECONDS * backoff_multiplier)
 
-        if not config.GEMINI_API_KEY:
+        if not config.GEMINI_API_KEY or not _within_prewarm_window():
             continue
         try:
             task = await asyncio.to_thread(prewarm.next_missing_render)

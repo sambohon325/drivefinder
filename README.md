@@ -74,6 +74,16 @@ on a live Gemini call. It's fully resumable: `prewarm.py` recomputes the
 time, rather than keeping a separate queue table that could drift out of
 sync. Set `PREWARM_ENABLED=false` to turn it off.
 
+By default it also only runs midnight-7am (`PREWARM_TIMEZONE`, default
+`America/Chicago`) via `PREWARM_RESTRICT_HOURS` — so it can't compete with
+live testing/traffic for API quota during the hours that actually matter.
+Set `PREWARM_RESTRICT_HOURS=false` to run all day instead. Worth knowing:
+Gemini's daily quota (RPD) resets at midnight *Pacific* time specifically,
+not whatever timezone this is set to — restricting to off-hours helps with
+per-minute (RPM) contention, but doesn't increase the daily cap; if
+pre-warm's calls plus daytime usage together exceed RPD, that's still a
+real ceiling regardless of when the calls happen.
+
 The blocking Gemini call runs via `asyncio.to_thread` specifically so it
 never stalls the event loop that's serving real requests — the whole point
 is to make things faster for users, not to introduce a background job that
@@ -240,6 +250,9 @@ GEMINI_API_KEY=... SECRET_KEY=... FRONTEND_DIR=../frontend uvicorn app.main:app 
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | No | Enables `/admin`. Leave password blank to disable it |
 | `PREWARM_ENABLED` | No | Set `false` to turn off background cache pre-warming |
 | `PREWARM_INTERVAL_SECONDS` | No | Seconds between each pre-warmed render. Defaults to 45 |
+| `PREWARM_RESTRICT_HOURS` | No | Set `false` to let pre-warm run all day instead of off-hours only |
+| `PREWARM_ACTIVE_START_HOUR` / `PREWARM_ACTIVE_END_HOUR` | No | Off-hours window (24h, local to `PREWARM_TIMEZONE`). Defaults 0–7 |
+| `PREWARM_TIMEZONE` | No | IANA timezone for the window above. Defaults to `America/Chicago` |
 
 **Heads up:** `gemini-2.5-flash-image` (the model in the original prototype)
 is scheduled to shut down by Google on **October 2, 2026**. This build

@@ -55,3 +55,12 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # and there's no reason to burst-generate hundreds of images at once.
 PREWARM_ENABLED = os.environ.get("PREWARM_ENABLED", "true").lower() != "false"
 PREWARM_INTERVAL_SECONDS = int(os.environ.get("PREWARM_INTERVAL_SECONDS", "45"))
+
+# Optional time-of-day restriction, so the background job doesn't compete
+# for API quota with live testing/traffic during the hours that matter.
+# Defaults to midnight-7am in PREWARM_TIMEZONE. Set RESTRICT_HOURS=false to
+# run all day (the original behavior).
+PREWARM_RESTRICT_HOURS = os.environ.get("PREWARM_RESTRICT_HOURS", "true").lower() != "false"
+PREWARM_ACTIVE_START_HOUR = int(os.environ.get("PREWARM_ACTIVE_START_HOUR", "0"))  # midnight
+PREWARM_ACTIVE_END_HOUR = int(os.environ.get("PREWARM_ACTIVE_END_HOUR", "7"))      # 7am
+PREWARM_TIMEZONE = os.environ.get("PREWARM_TIMEZONE", "America/Chicago")

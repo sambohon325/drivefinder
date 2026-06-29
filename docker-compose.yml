@@ -13,6 +13,10 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - PREWARM_ENABLED=${PREWARM_ENABLED:-true}
       - PREWARM_INTERVAL_SECONDS=${PREWARM_INTERVAL_SECONDS:-45}
+      - PREWARM_RESTRICT_HOURS=${PREWARM_RESTRICT_HOURS:-true}
+      - PREWARM_ACTIVE_START_HOUR=${PREWARM_ACTIVE_START_HOUR:-0}
+      - PREWARM_ACTIVE_END_HOUR=${PREWARM_ACTIVE_END_HOUR:-7}
+      - PREWARM_TIMEZONE=${PREWARM_TIMEZONE:-America/Chicago}
     volumes:
       - drivefinder_data:/app/data
       - drivefinder_images:/app/image_cache

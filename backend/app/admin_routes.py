@@ -174,6 +174,7 @@ def bulk_set_country(
 @router.get("/prewarm/status")
 def prewarm_status(_: bool = Depends(require_admin)):
     from . import prewarm
+    from .main import _within_prewarm_window
 
     generated, total = prewarm.progress_summary()
     return {
@@ -181,6 +182,11 @@ def prewarm_status(_: bool = Depends(require_admin)):
         "total": total,
         "enabled": config.PREWARM_ENABLED,
         "interval_seconds": config.PREWARM_INTERVAL_SECONDS,
+        "restrict_hours": config.PREWARM_RESTRICT_HOURS,
+        "active_start_hour": config.PREWARM_ACTIVE_START_HOUR,
+        "active_end_hour": config.PREWARM_ACTIVE_END_HOUR,
+        "timezone": config.PREWARM_TIMEZONE,
+        "currently_in_window": _within_prewarm_window(),
     }
 
 
