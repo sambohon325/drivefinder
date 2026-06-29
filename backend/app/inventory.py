@@ -11,6 +11,17 @@ def load_inventory() -> List[dict]:
         return json.load(f)
 
 
+def get_by_id(record_id) -> Optional[dict]:
+    try:
+        record_id = int(record_id)
+    except (TypeError, ValueError):
+        return None
+    for c in load_inventory():
+        if c["id"] == record_id:
+            return c
+    return None
+
+
 def find_by_make_model(make: str, model: str, color: Optional[str] = None) -> List[dict]:
     inventory = load_inventory()
     matches = [

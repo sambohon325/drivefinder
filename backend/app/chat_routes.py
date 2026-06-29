@@ -26,8 +26,9 @@ DEFAULT_STATE = {
     "current_make": "none",
     "current_model": "none",
     "stock_color": "none",
-    "previews_generated": False,
+    "selected_option_id": None,
     "clay_rendered": False,
+    "options_generated": False,
     "final_set_generated": False,
 }
 
@@ -114,33 +115,88 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
     db.add(models.ChatMessage(session_id=session.id, role="user", content=payload.message))
     db.add(models.ChatMessage(session_id=session.id, role="assistant", content=turn.response_text))
 
-    build_images = _maybe_generate_images(state)
+    build_images, vehicle_options = _advance_build(state)
+
+    # Once finance-ready, it stays that way for this session even if a later
+    # LLM turn second-guesses itself — selecting a concrete option (or a
+    # clear earlier confirmation) shouldn't be reversible by the model
+    # looping back on its own question.
+    is_ready = turn.is_ready_for_finance or session.is_ready_for_finance
 
     session.state = state
-    session.is_ready_for_finance = turn.is_ready_for_finance
+    session.is_ready_for_finance = is_ready
     db.add(session)
     db.commit()
 
     return schemas.ChatTurnResponse(
         response_text=turn.response_text,
         state=state,
-        is_ready_for_finance=turn.is_ready_for_finance,
+        is_ready_for_finance=is_ready,
         build_images=build_images,
+        vehicle_options=vehicle_options,
     )
 
 
-def _maybe_generate_images(state: dict) -> list[schemas.BuildImage]:
-    """Runs the same three milestones as the original prototype (clay pass,
-    preview cards, final 5-shot set) but every render is resolved through the
-    spec-keyed cache, so repeat make/model/color combos across different
-    users cost nothing after the first generation.
+@router.post("/select-option", response_model=schemas.ChatTurnResponse)
+def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(get_db)):
+    """Locking in a specific card is a deterministic action, not something
+    left to the LLM to infer from free text — this is what actually
+    guarantees the build reaches a finalized, finance-ready state."""
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == payload.session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found.")
+
+    option = inv.get_by_id(payload.option_id)
+    if not option:
+        raise HTTPException(404, "That option is no longer available.")
+
+    state = dict(session.state or DEFAULT_STATE)
+    state["current_make"] = option["make"]
+    state["current_model"] = option["model"]
+    state["current_body_style"] = option["body_style"].lower()
+    state["stock_color"] = option["color"]
+    state["selected_option_id"] = payload.option_id
+    state["options_generated"] = True  # the list has served its purpose; don't regenerate it
+
+    build_images, _ = _advance_build(state)
+
+    response_text = (
+        f"Locked in: {option['year']} {option['make']} {option['model']} {option['trim']} in "
+        f"{option['color']}. Whenever you're ready, hit \u201cContinue to delivery & financing\u201d to wrap up."
+    )
+    db.add(models.ChatMessage(session_id=session.id, role="assistant", content=response_text))
+
+    session.state = state
+    session.is_ready_for_finance = True
+    db.add(session)
+    db.commit()
+
+    return schemas.ChatTurnResponse(
+        response_text=response_text,
+        state=state,
+        is_ready_for_finance=True,
+        build_images=build_images,
+        vehicle_options=[],
+    )
+
+
+def _advance_build(state: dict):
+    """Runs whichever build milestone is next due, given the current state.
+    Returns (build_images, vehicle_options) — vehicle_options is only
+    populated the moment the selectable list first appears; build_images
+    covers the clay reveal and, once a specific option is locked in, the
+    final multi-angle render set. All renders are resolved through the
+    spec-keyed image cache, so repeat make/model/color combos across
+    different users and sessions cost nothing after the first generation.
     """
-    images: list[schemas.BuildImage] = []
+    build_images: list[schemas.BuildImage] = []
+    vehicle_options: list[schemas.VehicleOption] = []
+
     make, model = state["current_make"], state["current_model"]
     body_style = state["current_body_style"]
     has_vehicle = make not in ("none", "", None) and model not in ("none", "", None)
     if not has_vehicle:
-        return images
+        return build_images, vehicle_options
 
     if not state.get("clay_rendered"):
         url = image_cache.get_or_generate(
@@ -148,18 +204,31 @@ def _maybe_generate_images(state: dict) -> list[schemas.BuildImage]:
             chat_logic.grey_clay_prompt(make, model, body_style),
         )
         if url:
-            images.append(schemas.BuildImage(label="Base structure", url=url))
+            build_images.append(schemas.BuildImage(label="Base structure", url=url))
         state["clay_rendered"] = True
 
-    if not state.get("previews_generated"):
-        for match in inv.find_by_make_model(make, model)[:4]:
+    if not state.get("options_generated"):
+        matches = inv.find_by_make_model(make, model)[:5]
+        for match in matches:
             url = image_cache.get_or_generate(
                 image_cache.cache_key(make, model, match["color"], "preview"),
                 chat_logic.preview_card_prompt(make, model, body_style, match["color"]),
             )
-            if url:
-                images.append(schemas.BuildImage(label=f"{match['color']} option", url=url))
-        state["previews_generated"] = True
+            vehicle_options.append(
+                schemas.VehicleOption(
+                    option_id=str(match["id"]),
+                    year=match["year"],
+                    make=match["make"],
+                    model=match["model"],
+                    trim=match["trim"],
+                    color=match["color"],
+                    price=match["price"],
+                    mileage=match["mileage"],
+                    condition=match["condition"],
+                    image_url=url,
+                )
+            )
+        state["options_generated"] = True
 
     color = state.get("stock_color", "none")
     if color not in ("none", "", None) and not state.get("final_set_generated"):
@@ -170,22 +239,22 @@ def _maybe_generate_images(state: dict) -> list[schemas.BuildImage]:
                 chat_logic.exterior_angle_prompt(make, model, body_style, color, angle),
             )
             if url:
-                images.append(schemas.BuildImage(label=label, url=url))
+                build_images.append(schemas.BuildImage(label=label, url=url))
 
         cockpit_url = image_cache.get_or_generate(
             image_cache.cache_key(make, model, "cockpit"),
             chat_logic.interior_cockpit_prompt(make, model),
         )
         if cockpit_url:
-            images.append(schemas.BuildImage(label="Cockpit", url=cockpit_url))
+            build_images.append(schemas.BuildImage(label="Cockpit", url=cockpit_url))
 
         seating_url = image_cache.get_or_generate(
             image_cache.cache_key(make, model, body_style, "seating"),
             chat_logic.interior_seating_prompt(make, model, body_style),
         )
         if seating_url:
-            images.append(schemas.BuildImage(label="Seating", url=seating_url))
+            build_images.append(schemas.BuildImage(label="Seating", url=seating_url))
 
         state["final_set_generated"] = True
 
-    return images
+    return build_images, vehicle_options

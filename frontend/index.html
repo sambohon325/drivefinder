@@ -6,7 +6,7 @@
 <title>DriveFinder by Vicimus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -42,13 +42,17 @@
   <div id="app-shell" class="view view-app">
     <section class="chat-pane">
       <div class="chat-thread" id="chat-thread"></div>
+      <div class="chat-cta-bar" id="chat-cta-bar">
+        <button class="btn btn-primary" id="continue-btn">Continue to delivery &amp; financing</button>
+      </div>
       <form class="chat-input-bar" id="chat-form">
         <input type="text" id="chat-input" placeholder="Tell me what you're looking for…" autocomplete="off" />
         <button type="submit" class="btn btn-primary">Send</button>
       </form>
     </section>
 
-    <aside class="build-panel">
+    <aside class="build-panel" id="build-panel">
+      <button class="build-tray-close" id="build-tray-close" aria-label="Close">&times;</button>
       <div class="build-header">
         <h2>Your build</h2>
         <span class="badge badge-standard" id="build-status">Not started</span>
@@ -66,19 +70,24 @@
 
       <div class="build-thumbs" id="build-thumbs"></div>
 
+      <div class="options-grid" id="options-grid"></div>
+      <div class="option-selected-card" id="selected-option-card" hidden></div>
+
       <div class="spec-chips" id="spec-chips">
         <span class="chip" id="chip-make">Make —</span>
         <span class="chip" id="chip-model">Model —</span>
         <span class="chip" id="chip-color">Color —</span>
         <span class="chip" id="chip-body">Body —</span>
       </div>
-
-      <div class="build-cta">
-        <button class="btn btn-primary btn-block" id="continue-btn" disabled>Continue to delivery &amp; financing</button>
-      </div>
     </aside>
   </div>
 </div>
+
+<button class="build-tray-tab" id="build-tray-tab">
+  <span class="dot-badge"></span>
+  Your car build
+</button>
+<div class="build-tray-backdrop" id="build-tray-backdrop"></div>
 
 <footer class="site-footer">
   <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">

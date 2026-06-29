@@ -41,6 +41,25 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+# ---------- Vehicle options (the actual selectable inventory list) ----------
+class VehicleOption(BaseModel):
+    option_id: str
+    year: int
+    make: str
+    model: str
+    trim: str
+    color: str
+    price: int
+    mileage: int
+    condition: str
+    image_url: Optional[str] = None
+
+
+class SelectOptionRequest(BaseModel):
+    session_id: str
+    option_id: str
+
+
 # ---------- Chat ----------
 class StartSessionRequest(BaseModel):
     location: Optional[str] = None
@@ -62,6 +81,7 @@ class ChatTurnResponse(BaseModel):
     state: dict
     is_ready_for_finance: bool
     build_images: List[BuildImage] = []
+    vehicle_options: List[VehicleOption] = []
     geo_blocked: bool = False
 
 

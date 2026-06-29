@@ -39,7 +39,13 @@ def system_instruction() -> str:
         "inventory. Do NOT set 'detected_model' to the unavailable name until they accept an available option.\n"
         "- If the user explicitly states 'new' or 'used', set 'already_asked_condition' to true.\n"
         "- If they select a vehicle that lists a color, capture it in 'detected_stock_color'.\n"
-        "- Once a clear Make and Model are determined, summarize cleanly and set 'is_ready_for_finance' to true."
+        "- Once a clear Make and Model are determined, summarize cleanly and set 'is_ready_for_finance' to true.\n"
+        "- IMPORTANT: once you have already said something like 'ready to talk financing' earlier in this "
+        "conversation (check the message history before asking), do NOT ask that same question again. The "
+        "person has a 'Continue to delivery & financing' button on screen for that — your job from that point "
+        "on is just to answer any other questions about the vehicle, not to re-ask if they're ready. If they "
+        "say something like 'yes' or 'ready' after you've already covered this, acknowledge it briefly and "
+        "point them to that button rather than repeating the question."
     )
 
 

@@ -5,6 +5,8 @@
     chatState: {},
     images: [], // {label, url}
     activeImageUrl: null,
+    vehicleOptions: [],
+    selectedOption: null,
     pendingAuthIntent: null, // "checkout" once auth succeeds mid-checkout
     checkout: { delivery: "home", financing: "independent", crosssell: "yes" },
   };
@@ -43,6 +45,7 @@
     wireChat();
     wireAuthModal();
     wireCheckoutModal();
+    wireBuildTray();
   }
 
   function updateAuthButtons() {
@@ -103,11 +106,10 @@
         updateSpecChips();
         updateBuildRail();
         handleBuildImages(turn.build_images || []);
-        el("continue-btn").disabled = !turn.is_ready_for_finance;
-        if (turn.is_ready_for_finance) {
-          el("build-status").textContent = "Ready";
-          el("build-status").className = "badge badge-preferred";
+        if (turn.vehicle_options && turn.vehicle_options.length) {
+          renderOptions(turn.vehicle_options);
         }
+        setReady(turn.is_ready_for_finance);
       } catch (err) {
         hideTyping();
         appendMessage("assistant", "Hmm, that didn't go through. Mind trying again?");
@@ -139,7 +141,15 @@
     if (dots) dots.remove();
   }
 
-  // ---------- Build panel ----------
+  function setReady(isReady) {
+    el("chat-cta-bar").classList.toggle("is-visible", !!isReady);
+    if (isReady) {
+      el("build-status").textContent = "Ready";
+      el("build-status").className = "badge badge-preferred";
+    }
+  }
+
+  // ---------- Build panel: progress + renders ----------
   function updateSpecChips() {
     const s = state.chatState || {};
     setChip("chip-make", "Make", s.current_make);
@@ -158,7 +168,7 @@
   function updateBuildRail() {
     const s = state.chatState || {};
     el("rail-1").classList.toggle("done", !!s.clay_rendered);
-    el("rail-2").classList.toggle("done", !!s.previews_generated);
+    el("rail-2").classList.toggle("done", !!s.options_generated);
     el("rail-3").classList.toggle("done", !!s.final_set_generated);
   }
 
@@ -169,6 +179,7 @@
       addThumb(img);
     });
     setMainImage(images[images.length - 1].url, true);
+    flagTrayUpdate();
   }
 
   function addThumb(img) {
@@ -198,6 +209,121 @@
     document.querySelectorAll(".build-thumbs img").forEach((t) => {
       t.classList.toggle("active", t.src.endsWith(url));
     });
+  }
+
+  // ---------- Vehicle options: the actual selectable inventory list ----------
+  function renderOptions(options) {
+    state.vehicleOptions = options;
+    const grid = el("options-grid");
+    grid.innerHTML = "";
+    el("selected-option-card").hidden = true;
+
+    options.forEach((opt) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "option-card";
+      card.innerHTML = `
+        ${opt.image_url ? `<img src="${opt.image_url}" alt="${opt.color} ${opt.trim}" />` : '<div class="option-card-imgless"></div>'}
+        <div class="option-card-body">
+          <div class="option-card-title">${opt.year} ${opt.make} ${opt.model} ${opt.trim}</div>
+          <div class="option-card-meta">${opt.color} · ${opt.condition} · ${opt.mileage.toLocaleString()} mi</div>
+          <div class="option-card-price">$${opt.price.toLocaleString()}</div>
+        </div>`;
+      card.addEventListener("click", () => selectOption(opt));
+      grid.appendChild(card);
+    });
+
+    flagTrayUpdate();
+  }
+
+  async function selectOption(opt) {
+    try {
+      const turn = await api("/api/chat/select-option", {
+        method: "POST",
+        body: { session_id: state.sessionId, option_id: opt.option_id },
+      });
+
+      el("options-grid").innerHTML = "";
+      state.vehicleOptions = [];
+      state.selectedOption = opt;
+      showSelectedCard(opt);
+      celebrate(el("selected-option-card"));
+
+      appendMessage("assistant", turn.response_text);
+      state.chatState = turn.state || state.chatState;
+      updateSpecChips();
+      updateBuildRail();
+      handleBuildImages(turn.build_images || []);
+      setReady(turn.is_ready_for_finance);
+    } catch (err) {
+      appendMessage("assistant", `Couldn't lock that in: ${err.message}`);
+    }
+  }
+
+  function showSelectedCard(opt) {
+    const card = el("selected-option-card");
+    card.hidden = false;
+    card.innerHTML = `
+      ${opt.image_url ? `<img src="${opt.image_url}" alt="" />` : ""}
+      <div>
+        <div class="option-selected-badge">&check; Selected</div>
+        <div class="option-card-title">${opt.year} ${opt.make} ${opt.model} ${opt.trim}</div>
+        <div class="option-card-meta">${opt.color} &middot; $${opt.price.toLocaleString()}</div>
+      </div>`;
+  }
+
+  function celebrate(targetEl) {
+    if (!targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const colors = ["#4DA8FF", "#9FE0FF", "#FFFFFF", "#4FD1C5"];
+    for (let i = 0; i < 28; i++) {
+      const p = document.createElement("div");
+      p.className = "confetti-particle";
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 50 + Math.random() * 100;
+      p.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+      p.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+      p.style.setProperty("--rot", `${Math.random() * 360 - 180}deg`);
+      p.style.left = `${cx}px`;
+      p.style.top = `${cy}px`;
+      p.style.background = colors[i % colors.length];
+      document.body.appendChild(p);
+      p.addEventListener("animationend", () => p.remove());
+    }
+  }
+
+  // ---------- Mobile build tray (bottom sheet) ----------
+  function wireBuildTray() {
+    const tab = el("build-tray-tab");
+    const backdrop = el("build-tray-backdrop");
+    const panel = el("build-panel");
+    const closeBtn = el("build-tray-close");
+    if (!tab || !panel) return;
+
+    const open = () => {
+      panel.classList.add("is-open");
+      backdrop.classList.add("is-open");
+      tab.classList.remove("has-update");
+    };
+    const close = () => {
+      panel.classList.remove("is-open");
+      backdrop.classList.remove("is-open");
+    };
+
+    tab.addEventListener("click", open);
+    backdrop.addEventListener("click", close);
+    if (closeBtn) closeBtn.addEventListener("click", close);
+  }
+
+  function flagTrayUpdate() {
+    const panel = el("build-panel");
+    const tab = el("build-tray-tab");
+    if (!panel || !tab) return;
+    if (!panel.classList.contains("is-open")) {
+      tab.classList.add("has-update");
+    }
   }
 
   // ---------- Auth modal ----------
