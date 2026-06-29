@@ -121,16 +121,6 @@ def color_modifier(color: str) -> str:
     return f"flawless glossy deep metallic {color} paint coat finish"
 
 
-def grey_clay_prompt(make: str, model: str, body_style: str) -> str:
-    desc = body_desc(make, model, body_style)
-    return (
-        f"A crisp, clear studio product photograph of {desc} The entire car body is completely wrapped in a "
-        f"uniform, smooth matte unpolished light-grey vinyl film coating. All four wheels, multi-spoke rims, and "
-        f"rubber tires are fully detailed and visible. Completely de-badged. A uniform 3/4 front passenger-side "
-        f"perspective view angle. All window elements are clear unreflective glass. {STUDIO_PRESET}"
-    )
-
-
 def preview_card_prompt(make: str, model: str, body_style: str, color: str) -> str:
     desc = body_desc(make, model, body_style)
     return (

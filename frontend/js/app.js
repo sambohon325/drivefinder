@@ -177,7 +177,7 @@
 
   function updateBuildRail() {
     const s = state.chatState || {};
-    el("rail-1").classList.toggle("done", !!s.clay_rendered);
+    el("rail-1").classList.toggle("done", !!s.body_style_preview_rendered);
     el("rail-2").classList.toggle("done", !!s.options_generated);
     el("rail-3").classList.toggle("done", !!s.final_set_generated);
   }

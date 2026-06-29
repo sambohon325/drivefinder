@@ -57,7 +57,8 @@ class ChatSession(Base):
     location = Column(String, nullable=True)
 
     # Free-form state blob: current_make, current_model, current_body_style,
-    # stock_color, milestones {previews_generated, clay_rendered}, etc.
+    # stock_color, milestones {body_style_preview_rendered, options_generated,
+    # final_set_generated}, etc.
     state = Column(JSON, default=dict)
 
     is_ready_for_finance = Column(Boolean, default=False)

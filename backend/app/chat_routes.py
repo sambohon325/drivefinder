@@ -28,7 +28,6 @@ DEFAULT_STATE = {
     "stock_color": "none",
     "selected_option_id": None,
     "body_style_preview_rendered": False,
-    "clay_rendered": False,
     "options_generated": False,
     "final_set_generated": False,
 }
@@ -166,7 +165,7 @@ def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(ge
     state["selected_option_id"] = payload.option_id
     state["options_generated"] = True  # the list has served its purpose; don't regenerate it
 
-    build_images, _ = _advance_build(state)
+    build_images = _generate_final_set(state)
 
     response_text = (
         f"Locked in: {option['year']} {option['make']} {option['model']} {option['trim']} in "
@@ -206,20 +205,19 @@ def create_notify_request(payload: schemas.NotifyRequestIn, db: Session = Depend
 
 
 def _advance_build(state: dict):
-    """Runs whichever build milestone is next due, given the current state.
-    Returns (build_images, vehicle_options) — vehicle_options is only
-    populated the moment the selectable list first appears; build_images
-    covers the clay reveal and, once a specific option is locked in, the
-    final multi-angle render set. All renders are resolved through the
-    spec-keyed image cache, so repeat make/model/color combos across
-    different users and sessions cost nothing after the first generation.
+    """Runs the body-style-placeholder and options-list milestones only.
+    Does NOT generate the final multi-angle set — that's _generate_final_set,
+    reachable only through select_option(). Splitting these out means there's
+    exactly one path that can ever trigger the final render, instead of two
+    (a card click, and free-text color detection) that could independently
+    fire for the same milestone and produce duplicate image sets.
     """
     build_images: list[schemas.BuildImage] = []
     vehicle_options: list[schemas.VehicleOption] = []
 
     body_style = state["current_body_style"]
 
-    # Stage 0: body style only (no make/model yet) — a soft, deliberately
+    # Stage 1: body style only (no make/model yet) — a soft, deliberately
     # blurred placeholder so the build visibly starts the moment someone
     # says "SUV" or "truck", well before they've picked an exact model.
     if body_style not in ("none", "", None) and not state.get("body_style_preview_rendered"):
@@ -236,15 +234,10 @@ def _advance_build(state: dict):
     if not has_vehicle:
         return build_images, vehicle_options
 
-    if not state.get("clay_rendered"):
-        url = image_cache.get_or_generate(
-            image_cache.cache_key(make, model, "clay"),
-            chat_logic.grey_clay_prompt(make, model, body_style),
-        )
-        if url:
-            build_images.append(schemas.BuildImage(label="Base structure", url=url))
-        state["clay_rendered"] = True
-
+    # Stage 2: make + model known — straight to the real, selectable
+    # inventory list. No intermediate uncolored render here anymore; once we
+    # know the exact model, showing the real photographed options is more
+    # useful than an uncolored stand-in of the same model.
     if not state.get("options_generated"):
         matches = inv.find_by_make_model(make, model)[:5]
         for match in matches:
@@ -268,31 +261,44 @@ def _advance_build(state: dict):
             )
         state["options_generated"] = True
 
-    color = state.get("stock_color", "none")
-    if color not in ("none", "", None) and not state.get("final_set_generated"):
-        angle_labels = {"front_3q": "Front 3/4", "side": "Side profile", "rear_3q": "Rear 3/4"}
-        for angle, label in angle_labels.items():
-            url = image_cache.get_or_generate(
-                image_cache.cache_key(make, model, color, angle),
-                chat_logic.exterior_angle_prompt(make, model, body_style, color, angle),
-            )
-            if url:
-                build_images.append(schemas.BuildImage(label=label, url=url))
-
-        cockpit_url = image_cache.get_or_generate(
-            image_cache.cache_key(make, model, "cockpit"),
-            chat_logic.interior_cockpit_prompt(make, model),
-        )
-        if cockpit_url:
-            build_images.append(schemas.BuildImage(label="Cockpit", url=cockpit_url))
-
-        seating_url = image_cache.get_or_generate(
-            image_cache.cache_key(make, model, body_style, "seating"),
-            chat_logic.interior_seating_prompt(make, model, body_style),
-        )
-        if seating_url:
-            build_images.append(schemas.BuildImage(label="Seating", url=seating_url))
-
-        state["final_set_generated"] = True
-
     return build_images, vehicle_options
+
+
+def _generate_final_set(state: dict) -> list:
+    """Stage 3: the real multi-angle render set for the exact locked-in
+    spec. Only ever called from select_option() — not from the regular
+    message flow — so a card click is the single deterministic trigger.
+    """
+    build_images: list[schemas.BuildImage] = []
+    make, model = state["current_make"], state["current_model"]
+    body_style = state["current_body_style"]
+    color = state.get("stock_color", "none")
+
+    if color in ("none", "", None) or state.get("final_set_generated"):
+        return build_images
+
+    angle_labels = {"front_3q": "Front 3/4", "side": "Side profile", "rear_3q": "Rear 3/4"}
+    for angle, label in angle_labels.items():
+        url = image_cache.get_or_generate(
+            image_cache.cache_key(make, model, color, angle),
+            chat_logic.exterior_angle_prompt(make, model, body_style, color, angle),
+        )
+        if url:
+            build_images.append(schemas.BuildImage(label=label, url=url))
+
+    cockpit_url = image_cache.get_or_generate(
+        image_cache.cache_key(make, model, "cockpit"),
+        chat_logic.interior_cockpit_prompt(make, model),
+    )
+    if cockpit_url:
+        build_images.append(schemas.BuildImage(label="Cockpit", url=cockpit_url))
+
+    seating_url = image_cache.get_or_generate(
+        image_cache.cache_key(make, model, body_style, "seating"),
+        chat_logic.interior_seating_prompt(make, model, body_style),
+    )
+    if seating_url:
+        build_images.append(schemas.BuildImage(label="Seating", url=seating_url))
+
+    state["final_set_generated"] = True
+    return build_images

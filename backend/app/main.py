@@ -1,6 +1,6 @@
 import shutil
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -13,6 +13,21 @@ from .dealer_routes import router as dealer_router
 from .admin_routes import router as admin_router, require_admin
 
 app = FastAPI(title="DriveFinder by Vicimus")
+
+
+@app.middleware("http")
+async def no_cache_for_app_code(request: Request, call_next):
+    """Without this, a browser can keep using a stale cached copy of app.js
+    or styles.css after a deploy ships a fix — which looks exactly like 'the
+    fix didn't work' even though the new code is live on the server. Forcing
+    revalidation (not a full no-store; ETags still make this cheap) removes
+    that entire class of confusion for an app this actively being iterated on.
+    """
+    response = await call_next(request)
+    if request.url.path.startswith(("/js/", "/css/", "/assets/")) or request.url.path in ("/", "/dealer", "/admin"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
 
 app.include_router(auth_router)
 app.include_router(chat_router)
