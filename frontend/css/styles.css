@@ -299,6 +299,7 @@ button {
 .legal-shell a:hover { text-decoration: underline; }
 
 /* ===== Cookie notice ===== */
+.cookie-notice[hidden] { display: none !important; }
 .cookie-notice {
   position: fixed;
   left: 16px;
