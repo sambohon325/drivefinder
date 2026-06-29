@@ -8,6 +8,20 @@ from . import config
 
 _client: Optional[genai.Client] = None
 
+# Retries transient errors (rate limits, 5xx, timeouts) automatically before
+# they ever reach the user as a failure. Modest settings on purpose — this
+# backs an interactive chat, so a few quick retries that fail fast beats a
+# long backoff that makes someone sit and wonder if it's hanging. Codes
+# 429/500/502/503/504/408 are the SDK's own default retryable set.
+_RETRY_OPTIONS = types.HttpRetryOptions(
+    attempts=3,
+    initial_delay=1.0,
+    max_delay=8.0,
+    exp_base=2.0,
+    jitter=0.3,
+    http_status_codes=[408, 429, 500, 502, 503, 504],
+)
+
 
 def get_client() -> genai.Client:
     global _client
@@ -16,7 +30,10 @@ def get_client() -> genai.Client:
             raise RuntimeError(
                 "GEMINI_API_KEY is not set. Add it to your environment (see .env.example)."
             )
-        _client = genai.Client(api_key=config.GEMINI_API_KEY)
+        _client = genai.Client(
+            api_key=config.GEMINI_API_KEY,
+            http_options=types.HttpOptions(retry_options=_RETRY_OPTIONS),
+        )
     return _client
 
 

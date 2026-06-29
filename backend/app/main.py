@@ -52,20 +52,29 @@ async def _prewarm_loop():
     worker thread via asyncio.to_thread so it never stalls the event loop
     that's serving real user requests; that would defeat the entire point.
     """
+    consecutive_failures = 0
+    max_backoff_multiplier = 10
+
     while True:
-        await asyncio.sleep(config.PREWARM_INTERVAL_SECONDS)
+        backoff_multiplier = min(2 ** consecutive_failures, max_backoff_multiplier)
+        await asyncio.sleep(config.PREWARM_INTERVAL_SECONDS * backoff_multiplier)
+
         if not config.GEMINI_API_KEY:
             continue
         try:
             task = await asyncio.to_thread(prewarm.next_missing_render)
             if not task:
+                consecutive_failures = 0
                 continue
             key, prompt, meta = task
-            await asyncio.to_thread(image_cache.get_or_generate, key, prompt, meta)
+            url = await asyncio.to_thread(image_cache.get_or_generate, key, prompt, meta)
+            # get_or_generate already swallows its own exceptions and returns
+            # None on failure — back off on that, not just a raised error.
+            consecutive_failures = 0 if url else consecutive_failures + 1
         except Exception:
             # Never let one failed generation kill the background loop —
-            # it just tries again next interval.
-            continue
+            # it just waits longer and tries again.
+            consecutive_failures += 1
 
 
 @app.on_event("startup")

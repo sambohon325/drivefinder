@@ -127,7 +127,14 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
         )
     except RuntimeError as e:
         raise HTTPException(503, str(e))
-    except Exception:
+    except Exception as e:
+        code = getattr(e, "code", None)
+        if code == 429:
+            raise HTTPException(
+                429,
+                "We're getting rate-limited by the AI provider right now (this already retried a few "
+                "times). Give it a moment and try again.",
+            )
         raise HTTPException(502, "Sourcing gateway was temporarily interrupted. Please try again.")
 
     if turn.detected_body_style != "none":
