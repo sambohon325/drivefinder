@@ -58,7 +58,14 @@ def _guess_legacy_meta(filename: str) -> dict:
 
 @router.get("/images")
 def list_images(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
-    meta_by_filename = {m.filename: m for m in db.query(models.CachedRenderMeta).all()}
+    try:
+        meta_by_filename = {m.filename: m for m in db.query(models.CachedRenderMeta).all()}
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        meta_by_filename = {}
 
     files = []
     for f in sorted(config.IMAGE_CACHE_DIR.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True):

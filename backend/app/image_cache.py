@@ -54,18 +54,40 @@ def get_or_generate(key: str, prompt: str, db=None, meta: Optional[dict] = None)
 
 
 def _ensure_meta(db, filename: str, meta: dict) -> None:
-    from . import models  # local import: avoids a circular import at module load time
+    """Records metadata for the admin review queue. This is a secondary
+    feature and must never be allowed to break real image generation or
+    serving for an actual user — so two things protect that:
 
-    existing = db.query(models.CachedRenderMeta).filter(models.CachedRenderMeta.filename == filename).first()
-    if existing:
-        return
-    db.add(
-        models.CachedRenderMeta(
-            filename=filename,
-            make=meta.get("make"),
-            model=meta.get("model"),
-            color=meta.get("color"),
-            category=meta.get("category"),
+    1. An atomic upsert (ON CONFLICT DO NOTHING) instead of 'check, then
+       insert'. Without this, the background pre-warm loop and a live
+       request can both check 'does this filename exist yet?', both see
+       'no' (neither has committed), and both try to insert it — the second
+       one then fails on a duplicate primary key.
+    2. A try/except + rollback as a second layer. Without the rollback
+       specifically, a failed commit here leaves the SQLAlchemy session in
+       a state that poisons every *subsequent* DB operation in the same
+       request — which is exactly how one bad metadata write took down an
+       entire chat turn instead of just that one image.
+    """
+    try:
+        from . import models
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        stmt = (
+            sqlite_insert(models.CachedRenderMeta)
+            .values(
+                filename=filename,
+                make=meta.get("make"),
+                model=meta.get("model"),
+                color=meta.get("color"),
+                category=meta.get("category"),
+            )
+            .on_conflict_do_nothing(index_elements=["filename"])
         )
-    )
-    db.commit()
+        db.execute(stmt)
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
