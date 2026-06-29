@@ -47,6 +47,28 @@
     wireAuthModal();
     wireBuildTray();
     wireCheckoutCta();
+    wireCookieNotice();
+  }
+
+  function wireCookieNotice() {
+    const notice = el("cookie-notice");
+    if (!notice) return;
+    try {
+      if (!localStorage.getItem("df_cookie_ack")) {
+        notice.hidden = false;
+      }
+    } catch (_) {
+      // localStorage unavailable (e.g. private browsing) — just don't show it
+    }
+    const dismissBtn = el("cookie-dismiss");
+    if (dismissBtn) {
+      dismissBtn.addEventListener("click", () => {
+        try {
+          localStorage.setItem("df_cookie_ack", "1");
+        } catch (_) {}
+        notice.hidden = true;
+      });
+    }
   }
 
   function updateAuthButtons() {

@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 
 from fastapi import FastAPI, Depends, Request
@@ -11,7 +12,7 @@ from .chat_routes import router as chat_router
 from .lead_routes import router as lead_router
 from .dealer_routes import router as dealer_router
 from .admin_routes import router as admin_router, require_admin
-from . import regions as regions_module
+from . import regions as regions_module, prewarm, image_cache
 
 app = FastAPI(title="DriveFinder by Vicimus")
 
@@ -25,7 +26,9 @@ async def no_cache_for_app_code(request: Request, call_next):
     that entire class of confusion for an app this actively being iterated on.
     """
     response = await call_next(request)
-    if request.url.path.startswith(("/js/", "/css/", "/assets/")) or request.url.path in ("/", "/dealer", "/admin"):
+    if request.url.path.startswith(("/js/", "/css/", "/assets/")) or request.url.path in (
+        "/", "/dealer", "/admin", "/privacy", "/terms"
+    ):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
@@ -40,6 +43,33 @@ app.mount("/images", StaticFiles(directory=str(config.IMAGE_CACHE_DIR)), name="i
 app.mount("/css", StaticFiles(directory=str(config.FRONTEND_DIR / "css")), name="css")
 app.mount("/js", StaticFiles(directory=str(config.FRONTEND_DIR / "js")), name="js")
 app.mount("/assets", StaticFiles(directory=str(config.FRONTEND_DIR / "assets")), name="assets")
+
+
+async def _prewarm_loop():
+    """Generates one missing render per interval, forever, until the cache
+    is fully warm for the current inventory — then just keeps checking in
+    case inventory changes. Runs the actual (blocking) Gemini call in a
+    worker thread via asyncio.to_thread so it never stalls the event loop
+    that's serving real user requests; that would defeat the entire point.
+    """
+    while True:
+        await asyncio.sleep(config.PREWARM_INTERVAL_SECONDS)
+        if not config.GEMINI_API_KEY:
+            continue
+        try:
+            task = await asyncio.to_thread(prewarm.next_missing_render)
+            if not task:
+                continue
+            key, prompt, meta = task
+            db = SessionLocal()
+            try:
+                await asyncio.to_thread(image_cache.get_or_generate, key, prompt, db, meta)
+            finally:
+                db.close()
+        except Exception:
+            # Never let one failed generation kill the background loop —
+            # it just tries again next interval.
+            continue
 
 
 @app.on_event("startup")
@@ -57,6 +87,9 @@ def on_startup():
     finally:
         db.close()
 
+    if config.PREWARM_ENABLED:
+        asyncio.create_task(_prewarm_loop())
+
 
 @app.get("/health")
 def health():
@@ -71,6 +104,16 @@ def dealer_page():
 @app.get("/")
 def index_page():
     return FileResponse(str(config.FRONTEND_DIR / "index.html"))
+
+
+@app.get("/privacy")
+def privacy_page():
+    return FileResponse(str(config.FRONTEND_DIR / "privacy.html"))
+
+
+@app.get("/terms")
+def terms_page():
+    return FileResponse(str(config.FRONTEND_DIR / "terms.html"))
 
 
 @app.get("/admin")

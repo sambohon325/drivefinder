@@ -169,37 +169,55 @@ def interior_cockpit_prompt(make: str, model: str) -> str:
     )
 
 
+THREE_ROW_MODELS = {"tahoe", "explorer", "pilot", "highlander"}
+
+
 def interior_seating_prompt(make: str, model: str, body_style: str) -> str:
     tier = _market_tier(make)
     orientation_lock = (
         "Every seat in the cabin — front and rear — faces the same direction: forward, toward the "
         "windshield, exactly like a real car. All seats point the same way, toward the front of the vehicle. "
         "No seat is rotated, reversed, flipped, spun around, or facing sideways, backward, or toward another "
-        "seat. None of the seats face each other or face the rear of the vehicle. The rear bench is a single "
-        "continuous forward-facing unit; individual seat sections never face inward toward each other or "
-        "outward away from the direction of travel. Every headrest points toward the front windshield."
+        "seat. None of the seats face each other or face the rear of the vehicle. Every headrest points "
+        "toward the front windshield. Picture sitting in the driver's seat and looking back over your "
+        "shoulder: every seat behind you faces the exact same forward direction you are facing."
     )
-    if body_style == "suv":
+    window_lock = (
+        "Every window in the cabin, without exception — including the rear side windows, the rear hatch or "
+        "tailgate glass, and the sunroof glass — is uniformly dark-tinted. There is no clear, bright, "
+        "reflective-white, or untinted glass anywhere in the frame; every pane of glass reads as the same "
+        "heavily smoked dark tone, with zero exceptions."
+    )
+
+    if body_style == "suv" and model.lower() in THREE_ROW_MODELS:
         return (
             f"A high-fidelity studio detailed photograph taken inside the middle seat passenger cabin area of a "
-            f"{tier} {make} {model} SUV, matching its real cabin width and seating layout. {orientation_lock} "
-            f"The middle passenger row features an immaculate, standalone set of leather captain's chairs with "
-            f"crisp diamond-quilted stitching. A clear, wide, completely empty dark carpeted center aisle "
-            f"pathway separates the chairs, and the third-row seating architecture is safely constrained far in "
-            f"the background distance. The detailed backs of the front driver and passenger bucket seats are "
-            f"clearly visible, normally positioned, and occupy the lower left and right foreground corners of "
-            f"the frame layout. The painted steel interior metal trim framework surrounding the seats is "
-            f"finished in a solid liquid metallic theme, strictly zero blue panels, zero red door accents. All "
-            f"side window profiles are heavily dark smoke tinted glass surfaces."
+            f"{tier} {make} {model} three-row SUV, matching its real cabin width and seating layout. "
+            f"{orientation_lock} The middle passenger row features an immaculate, standalone set of leather "
+            f"captain's chairs with crisp diamond-quilted stitching. A clear, wide, completely empty dark "
+            f"carpeted center aisle pathway separates the chairs, and the third-row seating architecture is "
+            f"safely constrained far in the background distance. The detailed backs of the front driver and "
+            f"passenger bucket seats are clearly visible, normally positioned, and occupy the lower left and "
+            f"right foreground corners of the frame layout. The painted steel interior metal trim framework "
+            f"surrounding the seats is finished in a solid liquid metallic theme, strictly zero blue panels, "
+            f"zero red door accents. {window_lock}"
         )
+
+    cabin_note = (
+        "a standard two-row cabin with a single rear bench seat — not a three-row layout, no captain's "
+        "chairs, no third row of any kind"
+        if body_style == "suv"
+        else "a standard sedan cabin with a single rear bench seat"
+    )
     return (
         f"A high-fidelity studio detailed photograph taken inside the rear seat passenger row cabin area of a "
-        f"{tier} {make} {model}, matching its real cabin width and seating layout. {orientation_lock} "
-        f"Immaculate uniform leather backseat upholstery textures with quilted diamond-stitching details. The "
-        f"detailed backs of the front driver and passenger bucket seats are clearly visible, normally "
-        f"positioned, and occupy the lower left and right foreground corners of the frame layout. The floor "
-        f"area between the seating rows is an empty, realistic wide spacious dark carpeted floor area. The "
-        f"painted steel interior metal trim framework surrounding the seats is finished in a solid liquid "
-        f"metallic theme, strictly zero blue panels, zero red door accents. All side window profiles are "
-        f"heavily dark smoke tinted glass surfaces."
+        f"{tier} {make} {model}, matching its real cabin width and seating layout — {cabin_note}. "
+        f"{orientation_lock} Immaculate uniform leather backseat upholstery textures with quilted "
+        f"diamond-stitching details. The rear bench is a single continuous forward-facing unit; it never splits "
+        f"into individually rotated sections. The detailed backs of the front driver and passenger bucket "
+        f"seats are clearly visible, normally positioned, and occupy the lower left and right foreground "
+        f"corners of the frame layout. The floor area between the seating rows is an empty, realistic wide "
+        f"spacious dark carpeted floor area. The painted steel interior metal trim framework surrounding the "
+        f"seats is finished in a solid liquid metallic theme, strictly zero blue panels, zero red door accents. "
+        f"{window_lock}"
     )

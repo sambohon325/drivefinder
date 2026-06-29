@@ -66,9 +66,11 @@ def list_images(_: bool = Depends(require_admin), db: Session = Depends(get_db))
         meta = meta_by_filename.get(f.name)
         if meta:
             make, model, color, category = meta.make, meta.model, meta.color, meta.category
+            is_approved = meta.is_approved
         else:
             guess = _guess_legacy_meta(f.name)
             make, model, color, category = guess["make"], guess["model"], guess["color"], guess["category"]
+            is_approved = True  # predates the review feature — already implicitly reviewed by hand
 
         files.append(
             {
@@ -80,9 +82,25 @@ def list_images(_: bool = Depends(require_admin), db: Session = Depends(get_db))
                 "model": model,
                 "color": color,
                 "category": category,
+                "is_approved": is_approved,
             }
         )
     return files
+
+
+@router.post("/images/{filename}/approve")
+def approve_image(filename: str, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename.")
+    meta = db.query(models.CachedRenderMeta).filter(models.CachedRenderMeta.filename == filename).first()
+    if not meta:
+        # No metadata row (legacy file) — nothing to approve, it's already
+        # treated as reviewed. Make this idempotent rather than an error.
+        return {"filename": filename, "is_approved": True}
+    meta.is_approved = True
+    db.add(meta)
+    db.commit()
+    return {"filename": filename, "is_approved": True}
 
 
 @router.delete("/images/{filename}")
@@ -144,3 +162,35 @@ def bulk_set_country(
     )
     db.commit()
     return {"country": country, "is_enabled": enabled}
+
+
+@router.get("/prewarm/status")
+def prewarm_status(_: bool = Depends(require_admin)):
+    from . import prewarm
+
+    generated, total = prewarm.progress_summary()
+    return {
+        "generated": generated,
+        "total": total,
+        "enabled": config.PREWARM_ENABLED,
+        "interval_seconds": config.PREWARM_INTERVAL_SECONDS,
+    }
+
+
+@router.post("/prewarm/run-now")
+def prewarm_run_now(count: int = 1, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+    """Manually generate the next few missing renders immediately, instead
+    of waiting for the paced background loop — handy for testing or for
+    quickly warming a specific gap rather than the whole inventory."""
+    from . import prewarm, image_cache
+
+    count = max(1, min(count, 10))
+    generated = []
+    for _i in range(count):
+        task = prewarm.next_missing_render()
+        if not task:
+            break
+        key, prompt, meta = task
+        url = image_cache.get_or_generate(key, prompt, db=db, meta=meta)
+        generated.append({"key": key, "generated": bool(url)})
+    return {"generated": generated}

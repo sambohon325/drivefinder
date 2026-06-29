@@ -17,7 +17,7 @@ IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gemini-3.1-flash-image-preview")
 # It's folded into every cache key, so a bump makes every old render
 # unreachable and forces a fresh generation — without it, fixing a prompt
 # silently keeps serving the old (wrong) cached images forever.
-IMAGE_PROMPT_VERSION = os.environ.get("IMAGE_PROMPT_VERSION", "v4")
+IMAGE_PROMPT_VERSION = os.environ.get("IMAGE_PROMPT_VERSION", "v5")
 
 # --- Admin (internal use only — reviewing/clearing cached renders) ---
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
@@ -47,3 +47,11 @@ ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
 
 IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- Background cache pre-warming ---
+# Quietly generates renders the current inventory needs before anyone asks
+# for them, so the first real user to want a given spec doesn't wait on a
+# live Gemini call. Paced deliberately slow by default — this isn't urgent,
+# and there's no reason to burst-generate hundreds of images at once.
+PREWARM_ENABLED = os.environ.get("PREWARM_ENABLED", "true").lower() != "false"
+PREWARM_INTERVAL_SECONDS = int(os.environ.get("PREWARM_INTERVAL_SECONDS", "45"))

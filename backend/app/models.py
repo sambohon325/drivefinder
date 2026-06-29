@@ -143,6 +143,10 @@ class CachedRenderMeta(Base):
     multi-word models like 'F-150' or '3 Series'). Written whenever an image
     is generated; files that predate this table just won't have a row,
     and the admin tool falls back to a best-effort filename guess for those.
+
+    is_approved is purely an admin review/organization concept — it never
+    gates serving. A render is live to users the moment it exists on disk,
+    approved or not; this just tracks whether a human has looked at it yet.
     """
     __tablename__ = "cached_render_meta"
 
@@ -151,4 +155,5 @@ class CachedRenderMeta(Base):
     model = Column(String, nullable=True)
     color = Column(String, nullable=True)
     category = Column(String, nullable=True)  # e.g. "preview", "front_3q", "cockpit", "seating", "generic"
+    is_approved = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

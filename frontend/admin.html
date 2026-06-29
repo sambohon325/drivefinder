@@ -51,6 +51,31 @@
     </section>
 
     <section class="admin-section">
+      <div class="panel-header" style="margin-bottom:10px;">
+        <h3>Cache pre-warm</h3>
+      </div>
+      <p class="modal-sub" style="margin-bottom:14px;">
+        A background job quietly generates renders for the current inventory before anyone asks for them,
+        so the first real visitor to want a given spec doesn't wait on a live generation. Paced slowly on
+        purpose — there's no rush. New renders land in "Unprocessed" below either way.
+      </p>
+      <div class="prewarm-status" id="prewarm-status">Loading…</div>
+    </section>
+
+    <section class="admin-section">
+      <div class="panel-header" style="margin-bottom:10px;">
+        <h3>Unprocessed renders</h3>
+        <span class="badge badge-progress" id="unprocessed-count">—</span>
+      </div>
+      <p class="modal-sub" style="margin-bottom:16px;">
+        New renders — from the background pre-warm or from live user activity — land here first. They're
+        already live and being served to users; this is purely for your review. Approve to file one under
+        the normal filters below, or delete it if something looks wrong.
+      </p>
+      <div class="admin-grid" id="unprocessed-grid"></div>
+    </section>
+
+    <section class="admin-section">
       <div class="panel-header" style="margin-bottom:18px;">
         <h3>Cached renders</h3>
         <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:220px;" />
@@ -73,10 +98,16 @@
 </div>
 
 <footer class="site-footer">
-  <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">
+  <div class="footer-content">
     <span class="footer-copyright">&copy; 2026</span>
-    <img src="/assets/vicimus-logo.svg" alt="Vicimus" class="footer-logo" />
-  </a>
+    <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">
+      <img src="/assets/vicimus-logo.svg" alt="Vicimus" class="footer-logo" />
+    </a>
+    <span class="footer-sep">&middot;</span>
+    <a href="/privacy" class="footer-text-link">Privacy Policy</a>
+    <span class="footer-sep">&middot;</span>
+    <a href="/terms" class="footer-text-link">Terms &amp; Agreements</a>
+  </div>
 </footer>
 
 </div>

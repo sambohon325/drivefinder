@@ -11,6 +11,8 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - PREWARM_ENABLED=${PREWARM_ENABLED:-true}
+      - PREWARM_INTERVAL_SECONDS=${PREWARM_INTERVAL_SECONDS:-45}
     volumes:
       - drivefinder_data:/app/data
       - drivefinder_images:/app/image_cache

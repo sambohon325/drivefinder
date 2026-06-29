@@ -63,6 +63,45 @@ its filename, size, and age, and delete any that look wrong. Deleting just
 removes the file; it regenerates fresh the next time that exact spec comes
 up. Leave `ADMIN_PASSWORD` blank to disable the tool entirely.
 
+### Background cache pre-warming
+
+A loop started on app startup (`main.py` → `_prewarm_loop`) quietly
+generates whichever render the current inventory needs next — one at a
+time, paced by `PREWARM_INTERVAL_SECONDS` (default 45s) — so a real visitor
+asking for a make/model/color nobody's requested yet doesn't have to wait
+on a live Gemini call. It's fully resumable: `prewarm.py` recomputes the
+"what's still missing" list from inventory + what's already on disk every
+time, rather than keeping a separate queue table that could drift out of
+sync. Set `PREWARM_ENABLED=false` to turn it off.
+
+The blocking Gemini call runs via `asyncio.to_thread` specifically so it
+never stalls the event loop that's serving real requests — the whole point
+is to make things faster for users, not to introduce a background job that
+competes with them.
+
+`/admin` also shows overall progress (e.g. "340 / 511 renders") and has a
+"Generate one now" button for nudging it along without waiting for the next
+interval.
+
+### Unprocessed renders: review without gating
+
+Every render — whether from the background pre-warm or from someone
+actually using the chat — lands in an **Unprocessed** queue at `/admin`
+first. Critically, **this never gates serving**: an unprocessed render is
+exactly as live as an approved one the moment it exists on disk. The queue
+is purely for your review, so you can catch something wrong before it's
+sitting in front of a lot of people, without making anyone wait on that
+review to happen.
+
+- **Approve** marks it reviewed and moves it into the normal filterable
+  "Cached renders" section below.
+- **Delete** removes it (same as the main grid) — it regenerates fresh
+  next time that spec is needed.
+- Files that predate this feature (no metadata row at all) are treated as
+  already-reviewed and show up directly in "Cached renders," not in the
+  queue — there'd be no point retroactively flagging hundreds of renders
+  you've already been looking at throughout testing.
+
 ### Region availability
 
 Also on `/admin`: every US state and Canadian province/territory, each with
@@ -183,6 +222,8 @@ GEMINI_API_KEY=... SECRET_KEY=... FRONTEND_DIR=../frontend uvicorn app.main:app 
 | `IMAGE_MODEL` | No | Defaults to `gemini-3.1-flash-image-preview` (see note below) |
 | `IMAGE_PROMPT_VERSION` | No | Bump on any meaningful prompt change — see above |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | No | Enables `/admin`. Leave password blank to disable it |
+| `PREWARM_ENABLED` | No | Set `false` to turn off background cache pre-warming |
+| `PREWARM_INTERVAL_SECONDS` | No | Seconds between each pre-warmed render. Defaults to 45 |
 
 **Heads up:** `gemini-2.5-flash-image` (the model in the original prototype)
 is scheduled to shut down by Google on **October 2, 2026**. This build
