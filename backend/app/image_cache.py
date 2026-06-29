@@ -24,15 +24,22 @@ def cache_key(*parts: str) -> str:
     return f"{base}_{config.IMAGE_PROMPT_VERSION}"
 
 
-def get_or_generate(key: str, prompt: str) -> Optional[str]:
+def get_or_generate(key: str, prompt: str, db=None, meta: Optional[dict] = None) -> Optional[str]:
     """Returns a public URL path for the cached (or freshly generated) render.
     Returns None only if generation fails and nothing is cached yet — callers
     should treat that as 'no image available this turn', not as an error.
+
+    When db + meta are supplied, also records structured (make/model/color/
+    category) metadata for the admin filter UI — on both a fresh generation
+    and a cache hit, so older files naturally get backfilled the next time
+    they're requested through the normal app flow.
     """
     filename = f"{key}.png"
     filepath = config.IMAGE_CACHE_DIR / filename
 
     if filepath.exists():
+        if db is not None and meta is not None:
+            _ensure_meta(db, filename, meta)
         return f"/images/{filename}"
 
     try:
@@ -40,4 +47,25 @@ def get_or_generate(key: str, prompt: str) -> Optional[str]:
     except Exception:
         return None
 
+    if ok and db is not None and meta is not None:
+        _ensure_meta(db, filename, meta)
+
     return f"/images/{filename}" if ok else None
+
+
+def _ensure_meta(db, filename: str, meta: dict) -> None:
+    from . import models  # local import: avoids a circular import at module load time
+
+    existing = db.query(models.CachedRenderMeta).filter(models.CachedRenderMeta.filename == filename).first()
+    if existing:
+        return
+    db.add(
+        models.CachedRenderMeta(
+            filename=filename,
+            make=meta.get("make"),
+            model=meta.get("model"),
+            color=meta.get("color"),
+            category=meta.get("category"),
+        )
+    )
+    db.commit()

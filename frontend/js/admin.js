@@ -10,26 +10,82 @@
       const res = await fetch("/api/admin/images", { credentials: "include" });
       if (!res.ok) throw new Error("Could not load cached renders.");
       allImages = await res.json();
-      render(allImages);
+      populateFilterOptions(allImages);
+      applyFilters();
     } catch (err) {
       grid.innerHTML = `<div class="empty-state">${err.message}</div>`;
     }
   }
 
+  function populateFilterOptions(images) {
+    const makes = [...new Set(images.map((i) => i.make).filter(Boolean))].sort();
+    fillSelect("filter-make", makes, "All makes");
+    refreshModelOptions(images);
+    const colors = [...new Set(images.map((i) => i.color).filter(Boolean))].sort();
+    fillSelect("filter-color", colors, "All colors");
+    const categories = [...new Set(images.map((i) => i.category).filter(Boolean))].sort();
+    fillSelect("filter-category", categories, "All types");
+  }
+
+  function refreshModelOptions(images) {
+    const selectedMake = el("filter-make").value;
+    const pool = selectedMake ? images.filter((i) => i.make === selectedMake) : images;
+    const models = [...new Set(pool.map((i) => i.model).filter(Boolean))].sort();
+    const previousModel = el("filter-model").value;
+    fillSelect("filter-model", models, "All models");
+    if (models.includes(previousModel)) el("filter-model").value = previousModel;
+  }
+
+  function fillSelect(id, values, allLabel) {
+    const select = el(id);
+    const current = select.value;
+    select.innerHTML = `<option value="">${allLabel}</option>` + values.map((v) => `<option value="${v}">${v}</option>`).join("");
+    if (values.includes(current)) select.value = current;
+  }
+
+  function applyFilters() {
+    const make = el("filter-make").value;
+    const model = el("filter-model").value;
+    const color = el("filter-color").value;
+    const category = el("filter-category").value;
+    const text = el("filter-input").value.toLowerCase();
+
+    const filtered = allImages.filter((img) => {
+      if (make && img.make !== make) return false;
+      if (model && img.model !== model) return false;
+      if (color && img.color !== color) return false;
+      if (category && img.category !== category) return false;
+      if (text && !img.filename.toLowerCase().includes(text)) return false;
+      return true;
+    });
+    render(filtered);
+  }
+
+  el("filter-make").addEventListener("change", () => {
+    refreshModelOptions(allImages);
+    applyFilters();
+  });
+  ["filter-model", "filter-color", "filter-category"].forEach((id) => {
+    el(id).addEventListener("change", applyFilters);
+  });
+  el("filter-input").addEventListener("input", applyFilters);
+
   function render(images) {
     const grid = el("admin-grid");
     if (!images.length) {
-      grid.innerHTML = '<div class="empty-state">No cached renders yet.</div>';
+      grid.innerHTML = '<div class="empty-state">No cached renders match these filters.</div>';
       return;
     }
     grid.innerHTML = "";
     images.forEach((img) => {
       const card = document.createElement("div");
       card.className = "admin-card";
+      const tags = [img.make, img.model, img.color, img.category].filter(Boolean).join(" · ");
       card.innerHTML = `
         <img src="${img.url}" alt="${img.filename}" loading="lazy" />
         <div class="admin-card-body">
           <div class="admin-card-name">${img.filename}</div>
+          <div class="admin-card-meta">${tags || "Unrecognized"}</div>
           <div class="admin-card-meta">${img.size_kb} KB &middot; ${new Date(img.modified * 1000).toLocaleString()}</div>
           <button class="btn btn-ghost admin-delete-btn" data-filename="${img.filename}">Delete</button>
         </div>`;
@@ -57,11 +113,6 @@
       });
     });
   }
-
-  el("filter-input").addEventListener("input", (e) => {
-    const q = e.target.value.toLowerCase();
-    render(allImages.filter((i) => i.filename.toLowerCase().includes(q)));
-  });
 
   load();
 

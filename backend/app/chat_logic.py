@@ -152,16 +152,19 @@ def interior_cockpit_prompt(make: str, model: str) -> str:
     return (
         f"A premium studio first-person cockpit view looking directly forward from the driver's seat eye-line "
         f"perspective inside a {tier} {make} {model}, matching its real dashboard layout, steering wheel "
-        f"design, and instrument cluster style. A prominent fully detailed black leather-wrapped modern "
-        f"steering wheel is positioned directly in front of the center field of view. Directly behind the "
-        f"steering wheel, a fully active digital instrumentation gauge cluster and binnacle display is "
-        f"completely visible showing illuminated driver metrics. Soft stitched dashboard inserts flank the "
-        f"active multimedia screen array. The sunroof opening reveals a solid uniform soft diffuse studio "
-        f"illumination light box sky ceiling, strictly zero blue sky or clouds permitted. The view looking "
-        f"through the front windshield and all side window panes reveals nothing but a solid, completely "
-        f"uniform, boundless flat light-grey studio infinity cove backdrop with strictly zero external "
-        f"vehicles, zero structures, and zero background shapes permitted. Both wing mirrors visible through "
-        f"the windows are modified to be completely solid, blank, opaque matte black plastic textures "
+        f"design, and instrument cluster style. There is exactly one steering wheel in this image, positioned "
+        f"directly in front of the driver's seat on one side of the dashboard only. Do not render a second "
+        f"steering wheel, a duplicate or mirrored wheel, any wheel-like shape on the passenger side, or any "
+        f"second steering control of any kind anywhere in the frame. A prominent fully detailed black "
+        f"leather-wrapped modern steering wheel is positioned directly in front of the center field of view. "
+        f"Directly behind that single steering wheel, a fully active digital instrumentation gauge cluster and "
+        f"binnacle display is completely visible showing illuminated driver metrics. Soft stitched dashboard "
+        f"inserts flank the active multimedia screen array. The sunroof opening reveals a solid uniform soft "
+        f"diffuse studio illumination light box sky ceiling, strictly zero blue sky or clouds permitted. The "
+        f"view looking through the front windshield and all side window panes reveals nothing but a solid, "
+        f"completely uniform, boundless flat light-grey studio infinity cove backdrop with strictly zero "
+        f"external vehicles, zero structures, and zero background shapes permitted. Both wing mirrors visible "
+        f"through the windows are modified to be completely solid, blank, opaque matte black plastic textures "
         f"containing zero reflections."
     )
 
@@ -170,10 +173,11 @@ def interior_seating_prompt(make: str, model: str, body_style: str) -> str:
     tier = _market_tier(make)
     orientation_lock = (
         "Every seat in the cabin — front and rear — faces the same direction: forward, toward the "
-        "windshield, exactly like a real car. No seat is rotated, reversed, flipped, or facing sideways, "
-        "backward, or toward another seat. The rear bench is a single continuous forward-facing unit; "
-        "individual seat sections never face inward toward each other or outward away from the direction "
-        "of travel."
+        "windshield, exactly like a real car. All seats point the same way, toward the front of the vehicle. "
+        "No seat is rotated, reversed, flipped, spun around, or facing sideways, backward, or toward another "
+        "seat. None of the seats face each other or face the rear of the vehicle. The rear bench is a single "
+        "continuous forward-facing unit; individual seat sections never face inward toward each other or "
+        "outward away from the direction of travel. Every headrest points toward the front windshield."
     )
     if body_style == "suv":
         return (

@@ -134,3 +134,21 @@ class RegionAvailability(Base):
     is_enabled = Column(Boolean, default=True)
 
     __table_args__ = (UniqueConstraint("country", "code", name="uq_region_country_code"),)
+
+
+class CachedRenderMeta(Base):
+    """Structured metadata for each cached render, keyed by filename. Exists
+    so the admin tool can filter by make/model/color reliably instead of
+    trying to parse ambiguous, slugified filenames (which breaks down for
+    multi-word models like 'F-150' or '3 Series'). Written whenever an image
+    is generated; files that predate this table just won't have a row,
+    and the admin tool falls back to a best-effort filename guess for those.
+    """
+    __tablename__ = "cached_render_meta"
+
+    filename = Column(String, primary_key=True)
+    make = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    color = Column(String, nullable=True)
+    category = Column(String, nullable=True)  # e.g. "preview", "front_3q", "cockpit", "seating", "generic"
+    created_at = Column(DateTime, default=datetime.utcnow)

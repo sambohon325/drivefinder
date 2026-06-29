@@ -1,10 +1,11 @@
+import re
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.orm import Session
 
-from . import config, models
+from . import config, models, inventory as inv
 from .database import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -23,30 +24,79 @@ def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> bool
     return True
 
 
+def _slug(value: str) -> str:
+    value = (value or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    return value.strip("_") or "x"
+
+
+def _guess_legacy_meta(filename: str) -> dict:
+    """Best-effort fallback for files generated before structured metadata
+    tracking existed. Cross-references known (make, model) pairs from the
+    actual inventory instead of guessing word boundaries blindly — that
+    matters because slugified multi-word models ('F-150' -> 'f_150', '3
+    Series' -> '3_series') would otherwise be ambiguous to split correctly.
+    """
+    base = re.sub(r"\.png$", "", filename)
+    base = re.sub(r"_v\d+$", "", base)  # strip a trailing version suffix if present
+
+    if base.startswith("generic_"):
+        return {"make": None, "model": None, "color": None, "category": base}
+
+    known_pairs = sorted(
+        {(c["make"], c["model"]) for c in inv.load_inventory()},
+        key=lambda pair: -len(pair[1]),  # longer model names first, avoids partial-prefix collisions
+    )
+    for make, model in known_pairs:
+        prefix = f"{_slug(make)}_{_slug(model)}"
+        if base == prefix or base.startswith(prefix + "_"):
+            remainder = base[len(prefix):].strip("_")
+            return {"make": make, "model": model, "color": None, "category": remainder or "unknown"}
+
+    return {"make": None, "model": None, "color": None, "category": "unknown"}
+
+
 @router.get("/images")
-def list_images(_: bool = Depends(require_admin)):
+def list_images(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
+    meta_by_filename = {m.filename: m for m in db.query(models.CachedRenderMeta).all()}
+
     files = []
     for f in sorted(config.IMAGE_CACHE_DIR.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True):
         stat = f.stat()
+        meta = meta_by_filename.get(f.name)
+        if meta:
+            make, model, color, category = meta.make, meta.model, meta.color, meta.category
+        else:
+            guess = _guess_legacy_meta(f.name)
+            make, model, color, category = guess["make"], guess["model"], guess["color"], guess["category"]
+
         files.append(
             {
                 "filename": f.name,
                 "url": f"/images/{f.name}",
                 "size_kb": round(stat.st_size / 1024, 1),
                 "modified": stat.st_mtime,
+                "make": make,
+                "model": model,
+                "color": color,
+                "category": category,
             }
         )
     return files
 
 
 @router.delete("/images/{filename}")
-def delete_image(filename: str, _: bool = Depends(require_admin)):
+def delete_image(filename: str, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(400, "Invalid filename.")
     filepath = config.IMAGE_CACHE_DIR / filename
     if not filepath.exists():
         raise HTTPException(404, "Not found.")
     filepath.unlink()
+
+    db.query(models.CachedRenderMeta).filter(models.CachedRenderMeta.filename == filename).delete()
+    db.commit()
+
     return {"deleted": filename}
 
 

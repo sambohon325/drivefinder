@@ -53,12 +53,20 @@
     <section class="admin-section">
       <div class="panel-header" style="margin-bottom:18px;">
         <h3>Cached renders</h3>
-        <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:240px;" />
+        <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:220px;" />
       </div>
-      <p class="modal-sub" style="margin-bottom:20px;">
+      <p class="modal-sub" style="margin-bottom:16px;">
         Every image here is reused across every user who matches that exact make/model/color/angle — that's the
         whole cost-saving point. Delete one if it looks wrong; it'll regenerate fresh the next time someone needs it.
+        Filters are by make/model/color/type — year and trim aren't tracked per render, since the same render is
+        meant to be reused across every year and trim of a given model.
       </p>
+      <div class="admin-filter-row" id="admin-filter-row">
+        <select id="filter-make"><option value="">All makes</option></select>
+        <select id="filter-model"><option value="">All models</option></select>
+        <select id="filter-color"><option value="">All colors</option></select>
+        <select id="filter-category"><option value="">All types</option></select>
+      </div>
       <div class="admin-grid" id="admin-grid"></div>
     </section>
   </main>
