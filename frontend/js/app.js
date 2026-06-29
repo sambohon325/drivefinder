@@ -95,13 +95,13 @@
       if (!message) return;
       input.value = "";
       appendMessage("user", message);
-      showTyping();
+      showLoader("Getting your car ready…");
       try {
         const turn = await api("/api/chat/message", {
           method: "POST",
           body: { session_id: state.sessionId, message },
         });
-        hideTyping();
+        hideLoader();
         appendMessage("assistant", turn.response_text);
         state.chatState = turn.state || state.chatState;
         updateSpecChips();
@@ -119,7 +119,7 @@
         }
         setReady(turn.is_ready_for_finance);
       } catch (err) {
-        hideTyping();
+        hideLoader();
         appendMessage("assistant", "Hmm, that didn't go through. Mind trying again?");
       }
     });
@@ -135,28 +135,40 @@
     return bubble;
   }
 
-  function showTyping() {
+  function showLoader(message) {
     const thread = el("chat-thread");
-    const dots = document.createElement("div");
-    dots.className = "typing-dots";
-    dots.id = "typing-indicator";
-    dots.innerHTML = "<span></span><span></span><span></span>";
-    thread.appendChild(dots);
+    const loader = document.createElement("div");
+    loader.className = "car-loader";
+    loader.id = "car-loader";
+    loader.innerHTML = `<img src="/assets/vicimus-icon.svg" class="car-loader-icon" alt="" /><span>${message}</span>`;
+    thread.appendChild(loader);
     thread.scrollTop = thread.scrollHeight;
   }
 
-  function hideTyping() {
-    const dots = el("typing-indicator");
-    if (dots) dots.remove();
+  function hideLoader() {
+    const loader = el("car-loader");
+    if (loader) loader.remove();
   }
 
   function setReady(isReady) {
     if (isReady && !state.checkoutStarted) {
       el("chat-cta-bar").classList.add("is-visible");
     }
+    updateBuildStatus(isReady);
+  }
+
+  function updateBuildStatus(isReady) {
+    const badge = el("build-status");
+    const s = state.chatState || {};
     if (isReady) {
-      el("build-status").textContent = "Ready";
-      el("build-status").className = "badge badge-preferred";
+      badge.textContent = "Ready";
+      badge.className = "badge badge-preferred";
+    } else if (s.body_style_preview_rendered || s.options_generated) {
+      badge.textContent = "In progress";
+      badge.className = "badge badge-progress";
+    } else {
+      badge.textContent = "Not started";
+      badge.className = "badge badge-standard";
     }
   }
 
@@ -269,12 +281,14 @@
       c.style.opacity = "0.5";
       c.style.pointerEvents = "none";
     });
+    showLoader("Building your car…");
 
     try {
       const turn = await api("/api/chat/select-option", {
         method: "POST",
         body: { session_id: state.sessionId, option_id: opt.option_id },
       });
+      hideLoader();
 
       el("options-grid").innerHTML = "";
       state.vehicleOptions = [];
@@ -290,6 +304,7 @@
       handleBuildImages(turn.build_images || []);
       setReady(turn.is_ready_for_finance);
     } catch (err) {
+      hideLoader();
       appendMessage("assistant", `Couldn't lock that in: ${err.message}`);
       // Re-enable the cards so the person can actually retry after a failure
       document.querySelectorAll(".option-card").forEach((c) => {
