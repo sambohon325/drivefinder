@@ -185,7 +185,7 @@ def prewarm_status(_: bool = Depends(require_admin)):
 
 
 @router.post("/prewarm/run-now")
-def prewarm_run_now(count: int = 1, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+def prewarm_run_now(count: int = 1, _: bool = Depends(require_admin)):
     """Manually generate the next few missing renders immediately, instead
     of waiting for the paced background loop — handy for testing or for
     quickly warming a specific gap rather than the whole inventory."""
@@ -198,6 +198,6 @@ def prewarm_run_now(count: int = 1, _: bool = Depends(require_admin), db: Sessio
         if not task:
             break
         key, prompt, meta = task
-        url = image_cache.get_or_generate(key, prompt, db=db, meta=meta)
+        url = image_cache.get_or_generate(key, prompt, meta=meta)
         generated.append({"key": key, "generated": bool(url)})
     return {"generated": generated}

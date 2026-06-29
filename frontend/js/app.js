@@ -142,7 +142,8 @@
         setReady(turn.is_ready_for_finance);
       } catch (err) {
         hideLoader();
-        appendMessage("assistant", "Hmm, that didn't go through. Mind trying again?");
+        const detail = err && err.message ? err.message : "Mind trying again?";
+        appendMessage("assistant", `Hmm, that didn't go through: ${detail}`);
       }
     });
   }

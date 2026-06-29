@@ -61,11 +61,7 @@ async def _prewarm_loop():
             if not task:
                 continue
             key, prompt, meta = task
-            db = SessionLocal()
-            try:
-                await asyncio.to_thread(image_cache.get_or_generate, key, prompt, db, meta)
-            finally:
-                db.close()
+            await asyncio.to_thread(image_cache.get_or_generate, key, prompt, meta)
         except Exception:
             # Never let one failed generation kill the background loop —
             # it just tries again next interval.

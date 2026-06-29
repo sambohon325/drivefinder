@@ -79,6 +79,22 @@ never stalls the event loop that's serving real requests — the whole point
 is to make things faster for users, not to introduce a background job that
 competes with them.
 
+**Database design note, worth preserving if this code changes:** recording
+metadata for a render (`image_cache._ensure_meta`) always opens its own
+short-lived database session — deliberately never the caller's session.
+The pre-warm loop and a live chat request can legitimately race to record
+the same filename at the same instant; without a fully separate session,
+one side's metadata write failing could roll back or otherwise poison
+whatever *unrelated* pending work (saving chat messages, updating session
+state) the other side's request was in the middle of. This is also why
+`database.py` uses `NullPool` instead of the SQLAlchemy default connection
+pool — SQLite connections are cheap file handles, not real network
+round-trips, so pooling them just creates an artificial ceiling that this
+now-more-numerous pattern of short-lived sessions can exhaust under real
+concurrent load. Verified under a stress test of 30+ concurrent requests
+with the pre-warm loop hammering the cache at the same time, with zero
+errors on either side.
+
 `/admin` also shows overall progress (e.g. "340 / 511 renders") and has a
 "Generate one now" button for nudging it along without waiting for the next
 interval.

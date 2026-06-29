@@ -24,22 +24,25 @@ def cache_key(*parts: str) -> str:
     return f"{base}_{config.IMAGE_PROMPT_VERSION}"
 
 
-def get_or_generate(key: str, prompt: str, db=None, meta: Optional[dict] = None) -> Optional[str]:
+def get_or_generate(key: str, prompt: str, meta: Optional[dict] = None) -> Optional[str]:
     """Returns a public URL path for the cached (or freshly generated) render.
     Returns None only if generation fails and nothing is cached yet — callers
     should treat that as 'no image available this turn', not as an error.
 
-    When db + meta are supplied, also records structured (make/model/color/
+    When meta is supplied, also records structured (make/model/color/
     category) metadata for the admin filter UI — on both a fresh generation
     and a cache hit, so older files naturally get backfilled the next time
-    they're requested through the normal app flow.
+    they're requested through the normal app flow. That write uses its own
+    independent database session (see _ensure_meta) — deliberately not the
+    caller's session, so it can never interfere with whatever the caller is
+    doing with its own pending writes.
     """
     filename = f"{key}.png"
     filepath = config.IMAGE_CACHE_DIR / filename
 
     if filepath.exists():
-        if db is not None and meta is not None:
-            _ensure_meta(db, filename, meta)
+        if meta is not None:
+            _ensure_meta(filename, meta)
         return f"/images/{filename}"
 
     try:
@@ -47,32 +50,35 @@ def get_or_generate(key: str, prompt: str, db=None, meta: Optional[dict] = None)
     except Exception:
         return None
 
-    if ok and db is not None and meta is not None:
-        _ensure_meta(db, filename, meta)
+    if ok and meta is not None:
+        _ensure_meta(filename, meta)
 
     return f"/images/{filename}" if ok else None
 
 
-def _ensure_meta(db, filename: str, meta: dict) -> None:
+def _ensure_meta(filename: str, meta: dict) -> None:
     """Records metadata for the admin review queue. This is a secondary
     feature and must never be allowed to break real image generation or
-    serving for an actual user — so two things protect that:
+    serving for an actual user — so it gets its own fully independent
+    session, opened and closed right here:
 
-    1. An atomic upsert (ON CONFLICT DO NOTHING) instead of 'check, then
-       insert'. Without this, the background pre-warm loop and a live
-       request can both check 'does this filename exist yet?', both see
-       'no' (neither has committed), and both try to insert it — the second
-       one then fails on a duplicate primary key.
-    2. A try/except + rollback as a second layer. Without the rollback
-       specifically, a failed commit here leaves the SQLAlchemy session in
-       a state that poisons every *subsequent* DB operation in the same
-       request — which is exactly how one bad metadata write took down an
-       entire chat turn instead of just that one image.
+    1. A dedicated session means this can never share an open transaction
+       with whatever the calling request (e.g. a chat turn) is doing with
+       its own session — a metadata hiccup literally cannot roll back or
+       interfere with unrelated pending writes elsewhere in that request,
+       because there's no shared state to interfere with.
+    2. An atomic upsert (ON CONFLICT DO NOTHING) instead of 'check, then
+       insert', so the background pre-warm loop and a live request racing
+       to record the same filename at once can't collide on a duplicate key.
+    3. try/except + rollback as a second layer, in case of any other
+       unexpected DB hiccup — this function is purely best-effort.
     """
-    try:
-        from . import models
-        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+    from . import models
+    from .database import SessionLocal
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+    db = SessionLocal()
+    try:
         stmt = (
             sqlite_insert(models.CachedRenderMeta)
             .values(
@@ -91,3 +97,5 @@ def _ensure_meta(db, filename: str, meta: dict) -> None:
             db.rollback()
         except Exception:
             pass
+    finally:
+        db.close()

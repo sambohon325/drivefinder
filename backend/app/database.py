@@ -1,11 +1,13 @@
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import NullPool
 
 from . import config
 
 engine = create_engine(
     config.DATABASE_URL,
     connect_args={"check_same_thread": False, "timeout": 15},
+    poolclass=NullPool,
 )
 
 

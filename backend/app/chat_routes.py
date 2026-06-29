@@ -142,7 +142,7 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
     db.add(models.ChatMessage(session_id=session.id, role="user", content=payload.message))
     db.add(models.ChatMessage(session_id=session.id, role="assistant", content=turn.response_text))
 
-    build_images, vehicle_options = _advance_build(db, state)
+    build_images, vehicle_options = _advance_build(state)
 
     # If the options list already showed once but nothing's locked in yet,
     # and this message just narrowed things down (a color got detected),
@@ -156,7 +156,6 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
         and not state.get("final_set_generated")
     ):
         vehicle_options = _build_vehicle_options(
-            db,
             state["current_make"],
             state["current_model"],
             state["current_body_style"],
@@ -220,7 +219,7 @@ def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(ge
     state["selected_option_id"] = payload.option_id
     state["options_generated"] = True  # the list has served its purpose; don't regenerate it
 
-    build_images = [] if already_locked else _generate_final_set(db, state)
+    build_images = [] if already_locked else _generate_final_set(state)
 
     response_text = (
         f"Locked in: {option['year']} {option['make']} {option['model']} {option['trim']} in "
@@ -260,7 +259,7 @@ def create_notify_request(payload: schemas.NotifyRequestIn, db: Session = Depend
     return record
 
 
-def _build_vehicle_options(db, make: str, model: str, body_style: str, color_filter: str = None) -> list:
+def _build_vehicle_options(make: str, model: str, body_style: str, color_filter: str = None) -> list:
     """Builds the selectable card list for a make/model, optionally narrowed
     to a specific color when the conversation has gotten more specific."""
     matches = inv.find_by_make_model(make, model)
@@ -275,7 +274,6 @@ def _build_vehicle_options(db, make: str, model: str, body_style: str, color_fil
         url = image_cache.get_or_generate(
             image_cache.cache_key(make, model, match["color"], "preview"),
             chat_logic.preview_card_prompt(make, model, body_style, match["color"]),
-            db=db,
             meta={"make": make, "model": model, "color": match["color"], "category": "preview"},
         )
         options.append(
@@ -295,7 +293,7 @@ def _build_vehicle_options(db, make: str, model: str, body_style: str, color_fil
     return options
 
 
-def _advance_build(db, state: dict):
+def _advance_build(state: dict):
     """Runs the body-style-placeholder and options-list milestones only.
     Does NOT generate the final multi-angle set — that's _generate_final_set,
     reachable only through select_option(). Splitting these out means there's
@@ -321,7 +319,6 @@ def _advance_build(db, state: dict):
             url = image_cache.get_or_generate(
                 image_cache.cache_key("generic", body_style),
                 chat_logic.generic_body_style_prompt(body_style),
-                db=db,
                 meta={"make": None, "model": None, "color": None, "category": f"generic_{body_style}"},
             )
             if url:
@@ -336,13 +333,13 @@ def _advance_build(db, state: dict):
     # know the exact model, showing the real photographed options is more
     # useful than an uncolored stand-in of the same model.
     if not state.get("options_generated"):
-        vehicle_options = _build_vehicle_options(db, make, model, body_style)
+        vehicle_options = _build_vehicle_options(make, model, body_style)
         state["options_generated"] = True
 
     return build_images, vehicle_options
 
 
-def _generate_final_set(db, state: dict) -> list:
+def _generate_final_set(state: dict) -> list:
     """Stage 3: the real multi-angle render set for the exact locked-in
     spec. Only ever called from select_option() — not from the regular
     message flow — so a card click is the single deterministic trigger.
@@ -360,7 +357,6 @@ def _generate_final_set(db, state: dict) -> list:
         url = image_cache.get_or_generate(
             image_cache.cache_key(make, model, color, angle),
             chat_logic.exterior_angle_prompt(make, model, body_style, color, angle),
-            db=db,
             meta={"make": make, "model": model, "color": color, "category": angle},
         )
         if url:
@@ -369,7 +365,6 @@ def _generate_final_set(db, state: dict) -> list:
     cockpit_url = image_cache.get_or_generate(
         image_cache.cache_key(make, model, "cockpit"),
         chat_logic.interior_cockpit_prompt(make, model),
-        db=db,
         meta={"make": make, "model": model, "color": None, "category": "cockpit"},
     )
     if cockpit_url:
@@ -378,7 +373,6 @@ def _generate_final_set(db, state: dict) -> list:
     seating_url = image_cache.get_or_generate(
         image_cache.cache_key(make, model, body_style, "seating"),
         chat_logic.interior_seating_prompt(make, model, body_style),
-        db=db,
         meta={"make": make, "model": model, "color": None, "category": "seating"},
     )
     if seating_url:
