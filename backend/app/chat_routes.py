@@ -117,6 +117,24 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
 
     build_images, vehicle_options = _advance_build(state)
 
+    # If the options list already showed once but nothing's locked in yet,
+    # and this message just narrowed things down (a color got detected),
+    # re-surface a freshly filtered list so there's something to actually
+    # click and confirm — otherwise a refinement like "the grey one" only
+    # gets acknowledged in text, with no way to act on it.
+    if (
+        not vehicle_options
+        and turn.detected_stock_color != "none"
+        and state.get("options_generated")
+        and not state.get("final_set_generated")
+    ):
+        vehicle_options = _build_vehicle_options(
+            state["current_make"],
+            state["current_model"],
+            state["current_body_style"],
+            color_filter=state["stock_color"],
+        )
+
     # Once finance-ready, it stays that way for this session even if a later
     # LLM turn second-guesses itself — selecting a concrete option (or a
     # clear earlier confirmation) shouldn't be reversible by the model
@@ -158,6 +176,15 @@ def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(ge
         raise HTTPException(404, "That option is no longer available.")
 
     state = dict(session.state or DEFAULT_STATE)
+
+    # Idempotent: if this exact option was already locked in (a rapid
+    # double-click, or two requests racing each other before either had
+    # committed), don't re-append a duplicate chat message or report a
+    # second image set — just hand back the same confirmation.
+    already_locked = (
+        state.get("selected_option_id") == payload.option_id and state.get("final_set_generated")
+    )
+
     state["current_make"] = option["make"]
     state["current_model"] = option["model"]
     state["current_body_style"] = option["body_style"].lower()
@@ -165,13 +192,14 @@ def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(ge
     state["selected_option_id"] = payload.option_id
     state["options_generated"] = True  # the list has served its purpose; don't regenerate it
 
-    build_images = _generate_final_set(state)
+    build_images = [] if already_locked else _generate_final_set(state)
 
     response_text = (
         f"Locked in: {option['year']} {option['make']} {option['model']} {option['trim']} in "
         f"{option['color']}. Whenever you're ready, hit \u201cContinue to delivery & financing\u201d to wrap up."
     )
-    db.add(models.ChatMessage(session_id=session.id, role="assistant", content=response_text))
+    if not already_locked:
+        db.add(models.ChatMessage(session_id=session.id, role="assistant", content=response_text))
 
     session.state = state
     session.is_ready_for_finance = True
@@ -202,6 +230,39 @@ def create_notify_request(payload: schemas.NotifyRequestIn, db: Session = Depend
     db.commit()
     db.refresh(record)
     return record
+
+
+def _build_vehicle_options(make: str, model: str, body_style: str, color_filter: str = None) -> list:
+    """Builds the selectable card list for a make/model, optionally narrowed
+    to a specific color when the conversation has gotten more specific."""
+    matches = inv.find_by_make_model(make, model)
+    if color_filter and color_filter not in ("none", "", None):
+        filtered = [m for m in matches if m["color"].lower() == color_filter.lower()]
+        if filtered:
+            matches = filtered
+    matches = matches[:5]
+
+    options = []
+    for match in matches:
+        url = image_cache.get_or_generate(
+            image_cache.cache_key(make, model, match["color"], "preview"),
+            chat_logic.preview_card_prompt(make, model, body_style, match["color"]),
+        )
+        options.append(
+            schemas.VehicleOption(
+                option_id=str(match["id"]),
+                year=match["year"],
+                make=match["make"],
+                model=match["model"],
+                trim=match["trim"],
+                color=match["color"],
+                price=match["price"],
+                mileage=match["mileage"],
+                condition=match["condition"],
+                image_url=url,
+            )
+        )
+    return options
 
 
 def _advance_build(state: dict):
@@ -239,26 +300,7 @@ def _advance_build(state: dict):
     # know the exact model, showing the real photographed options is more
     # useful than an uncolored stand-in of the same model.
     if not state.get("options_generated"):
-        matches = inv.find_by_make_model(make, model)[:5]
-        for match in matches:
-            url = image_cache.get_or_generate(
-                image_cache.cache_key(make, model, match["color"], "preview"),
-                chat_logic.preview_card_prompt(make, model, body_style, match["color"]),
-            )
-            vehicle_options.append(
-                schemas.VehicleOption(
-                    option_id=str(match["id"]),
-                    year=match["year"],
-                    make=match["make"],
-                    model=match["model"],
-                    trim=match["trim"],
-                    color=match["color"],
-                    price=match["price"],
-                    mileage=match["mileage"],
-                    condition=match["condition"],
-                    image_url=url,
-                )
-            )
+        vehicle_options = _build_vehicle_options(make, model, body_style)
         state["options_generated"] = True
 
     return build_images, vehicle_options

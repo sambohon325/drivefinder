@@ -7,6 +7,7 @@
     activeImageUrl: null,
     vehicleOptions: [],
     selectedOption: null,
+    selecting: false,
     checkoutStarted: false,
     checkout: { delivery: null, financing: null, crosssell: null },
   };
@@ -261,6 +262,14 @@
   }
 
   async function selectOption(opt) {
+    if (state.selecting) return;
+    state.selecting = true;
+    document.querySelectorAll(".option-card").forEach((c) => {
+      c.disabled = true;
+      c.style.opacity = "0.5";
+      c.style.pointerEvents = "none";
+    });
+
     try {
       const turn = await api("/api/chat/select-option", {
         method: "POST",
@@ -282,6 +291,14 @@
       setReady(turn.is_ready_for_finance);
     } catch (err) {
       appendMessage("assistant", `Couldn't lock that in: ${err.message}`);
+      // Re-enable the cards so the person can actually retry after a failure
+      document.querySelectorAll(".option-card").forEach((c) => {
+        c.disabled = false;
+        c.style.opacity = "";
+        c.style.pointerEvents = "";
+      });
+    } finally {
+      state.selecting = false;
     }
   }
 
