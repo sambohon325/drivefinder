@@ -13,6 +13,16 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 CHAT_MODEL = os.environ.get("CHAT_MODEL", "gemini-2.5-flash")
 IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gemini-3.1-flash-image-preview")
 
+# Bump this any time the prompt text in chat_logic.py changes meaningfully.
+# It's folded into every cache key, so a bump makes every old render
+# unreachable and forces a fresh generation — without it, fixing a prompt
+# silently keeps serving the old (wrong) cached images forever.
+IMAGE_PROMPT_VERSION = os.environ.get("IMAGE_PROMPT_VERSION", "v2")
+
+# --- Admin (internal use only — reviewing/clearing cached renders) ---
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+
 # --- Storage paths (mount DATA_DIR + IMAGE_CACHE_DIR as a Coolify persistent volume) ---
 DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
 IMAGE_CACHE_DIR = Path(os.environ.get("IMAGE_CACHE_DIR", BASE_DIR / "image_cache"))

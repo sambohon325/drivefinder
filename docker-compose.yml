@@ -9,6 +9,8 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - SECRET_KEY=${SECRET_KEY:-dev-secret-change-me}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     volumes:
       - drivefinder_data:/app/data
       - drivefinder_images:/app/image_cache

@@ -104,3 +104,16 @@ class Lead(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="leads")
+
+
+class NotifyRequest(Base):
+    """Captured when someone asks for a make/model we don't carry. No
+    notification pipeline is wired up to actually email these yet — this
+    just gives the list a place to live until that's built."""
+    __tablename__ = "notify_requests"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    session_id = Column(String, ForeignKey("chat_sessions.id"), nullable=False)
+    email = Column(String, nullable=False)
+    requested_vehicle = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

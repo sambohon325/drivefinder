@@ -12,11 +12,16 @@ def _slug(value: str) -> str:
 
 def cache_key(*parts: str) -> str:
     """Builds a deterministic filename from spec parts, e.g.
-    cache_key('Toyota', 'Camry', 'Red', 'side') -> 'toyota_camry_red_side'.
+    cache_key('Toyota', 'Camry', 'Red', 'side') -> 'toyota_camry_red_side_v2'.
     Same spec always maps to the same file, so repeat requests across
     different users are cache hits instead of new Gemini image calls.
+
+    The trailing version segment means a prompt-wording fix (like the one
+    that corrected wrong-vehicle renders) automatically invalidates every
+    old render instead of silently continuing to serve it.
     """
-    return "_".join(_slug(p) for p in parts if p)
+    base = "_".join(_slug(p) for p in parts if p)
+    return f"{base}_{config.IMAGE_PROMPT_VERSION}"
 
 
 def get_or_generate(key: str, prompt: str) -> Optional[str]:

@@ -7,8 +7,8 @@
     activeImageUrl: null,
     vehicleOptions: [],
     selectedOption: null,
-    pendingAuthIntent: null, // "checkout" once auth succeeds mid-checkout
-    checkout: { delivery: "home", financing: "independent", crosssell: "yes" },
+    checkoutStarted: false,
+    checkout: { delivery: null, financing: null, crosssell: null },
   };
 
   const el = (id) => document.getElementById(id);
@@ -44,8 +44,8 @@
     wireGate();
     wireChat();
     wireAuthModal();
-    wireCheckoutModal();
     wireBuildTray();
+    wireCheckoutCta();
   }
 
   function updateAuthButtons() {
@@ -105,9 +105,16 @@
         state.chatState = turn.state || state.chatState;
         updateSpecChips();
         updateBuildRail();
+        if (turn.vehicle_options && turn.vehicle_options.length) {
+          resetBuildVisuals(); // clear anything left from an earlier, already-completed build
+        }
         handleBuildImages(turn.build_images || []);
         if (turn.vehicle_options && turn.vehicle_options.length) {
           renderOptions(turn.vehicle_options);
+          setStageVisible(false); // the option photos ARE the build-in-progress view now
+        }
+        if (turn.unavailable_vehicle) {
+          appendNotifyCard(turn.unavailable_vehicle);
         }
         setReady(turn.is_ready_for_finance);
       } catch (err) {
@@ -117,13 +124,14 @@
     });
   }
 
-  function appendMessage(role, text) {
+  function appendMessage(role, text, richClass) {
     const thread = el("chat-thread");
     const bubble = document.createElement("div");
-    bubble.className = `msg msg-${role}`;
+    bubble.className = `msg msg-${role}${richClass ? " " + richClass : ""}`;
     bubble.textContent = text;
     thread.appendChild(bubble);
     thread.scrollTop = thread.scrollHeight;
+    return bubble;
   }
 
   function showTyping() {
@@ -142,7 +150,9 @@
   }
 
   function setReady(isReady) {
-    el("chat-cta-bar").classList.toggle("is-visible", !!isReady);
+    if (isReady && !state.checkoutStarted) {
+      el("chat-cta-bar").classList.add("is-visible");
+    }
     if (isReady) {
       el("build-status").textContent = "Ready";
       el("build-status").className = "badge badge-preferred";
@@ -170,6 +180,21 @@
     el("rail-1").classList.toggle("done", !!s.clay_rendered);
     el("rail-2").classList.toggle("done", !!s.options_generated);
     el("rail-3").classList.toggle("done", !!s.final_set_generated);
+  }
+
+  function setStageVisible(visible) {
+    el("build-stage").style.display = visible ? "" : "none";
+    el("build-thumbs").style.display = visible ? "" : "none";
+  }
+
+  function resetBuildVisuals() {
+    state.images = [];
+    el("build-thumbs").innerHTML = "";
+    const stage = el("build-stage");
+    stage.classList.remove("loading");
+    stage.innerHTML =
+      '<div class="placeholder">Once you pick a make and model,<br/>your build will start rendering here.</div>';
+    el("selected-option-card").hidden = true;
   }
 
   function handleBuildImages(images) {
@@ -216,7 +241,6 @@
     state.vehicleOptions = options;
     const grid = el("options-grid");
     grid.innerHTML = "";
-    el("selected-option-card").hidden = true;
 
     options.forEach((opt) => {
       const card = document.createElement("button");
@@ -246,6 +270,7 @@
       el("options-grid").innerHTML = "";
       state.vehicleOptions = [];
       state.selectedOption = opt;
+      setStageVisible(true);
       showSelectedCard(opt);
       celebrate(el("selected-option-card"));
 
@@ -294,6 +319,42 @@
     }
   }
 
+  // ---------- Notify-me-when-available (unavailable vehicle requested) ----------
+  function appendNotifyCard(requestedVehicle) {
+    const thread = el("chat-thread");
+    const wrap = document.createElement("div");
+    wrap.className = "msg msg-assistant msg-rich";
+    wrap.innerHTML = `
+      <div class="notify-card">
+        Want us to let you know if a <strong>${requestedVehicle}</strong> becomes available?
+        <div class="notify-card-row">
+          <input type="email" placeholder="Your email" class="notify-email-input" />
+          <button type="button" class="btn btn-primary notify-submit-btn">Notify me</button>
+        </div>
+      </div>`;
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
+
+    wrap.querySelector(".notify-submit-btn").addEventListener("click", async () => {
+      const emailInput = wrap.querySelector(".notify-email-input");
+      const email = emailInput.value.trim();
+      if (!email) {
+        emailInput.focus();
+        return;
+      }
+      const card = wrap.querySelector(".notify-card");
+      try {
+        await api("/api/chat/notify-requests", {
+          method: "POST",
+          body: { session_id: state.sessionId, email, requested_vehicle: requestedVehicle },
+        });
+        card.innerHTML = `<div class="notify-card-confirmed">&check; We'll email you the moment a ${requestedVehicle} comes in.</div>`;
+      } catch (err) {
+        card.innerHTML += `<div class="modal-error">${err.message}</div>`;
+      }
+    });
+  }
+
   // ---------- Mobile build tray (bottom sheet) ----------
   function wireBuildTray() {
     const tab = el("build-tray-tab");
@@ -326,7 +387,7 @@
     }
   }
 
-  // ---------- Auth modal ----------
+  // ---------- Auth modal (nav sign in / sign up — unrelated to checkout) ----------
   function wireAuthModal() {
     el("nav-signin").addEventListener("click", () => {
       if (state.user) return logout();
@@ -354,10 +415,6 @@
         state.user = await api(path, { method: "POST", body: { email, password } });
         updateAuthButtons();
         closeModal("auth-modal");
-        if (state.pendingAuthIntent === "checkout") {
-          state.pendingAuthIntent = null;
-          await finalizeCheckout();
-        }
       } catch (err) {
         errorBox.textContent = err.message;
         errorBox.hidden = false;
@@ -395,42 +452,133 @@
     el(id).hidden = true;
   }
 
-  // ---------- Checkout modal ----------
-  function wireCheckoutModal() {
+  // ---------- Conversational checkout (inline in chat, no modal) ----------
+  function wireCheckoutCta() {
     el("continue-btn").addEventListener("click", () => {
-      goToCheckoutStep("delivery");
-      el("checkout-modal").hidden = false;
+      if (state.checkoutStarted) return;
+      state.checkoutStarted = true;
+      el("chat-cta-bar").classList.remove("is-visible");
+      askDelivery();
     });
-    el("checkout-close").addEventListener("click", () => closeModal("checkout-modal"));
+  }
 
-    el("delivery-next").addEventListener("click", () => {
-      state.checkout.delivery = document.querySelector('input[name="delivery"]:checked').value;
-      goToCheckoutStep("financing");
+  function appendChoiceMessage(text, choices) {
+    const thread = el("chat-thread");
+    const wrap = document.createElement("div");
+    wrap.className = "msg msg-assistant msg-rich";
+    const textNode = document.createElement("div");
+    textNode.textContent = text;
+    wrap.appendChild(textNode);
+    const row = document.createElement("div");
+    row.className = "choice-row";
+    choices.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "choice-pill";
+      btn.textContent = c.label;
+      btn.addEventListener("click", () => {
+        row.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        btn.classList.add("chosen");
+        appendMessage("user", c.label);
+        c.onPick();
+      });
+      row.appendChild(btn);
     });
-    el("financing-next").addEventListener("click", () => {
-      state.checkout.financing = document.querySelector('input[name="financing"]:checked').value;
-      goToCheckoutStep("crosssell");
-    });
-    el("crosssell-next").addEventListener("click", async () => {
-      state.checkout.crosssell = document.querySelector('input[name="crosssell"]:checked').value;
-      if (!state.user) {
-        state.pendingAuthIntent = "checkout";
-        closeModal("checkout-modal");
-        openAuthModal("signup");
-        return;
+    wrap.appendChild(row);
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function askDelivery() {
+    appendChoiceMessage(
+      "How should it get to you? (F&I perks shown are placeholders — final details are still being finalized.)",
+      [
+        { label: "Home delivery", onPick: () => { state.checkout.delivery = "home"; askFinancing(); } },
+        { label: "Pick up at the dealership", onPick: () => { state.checkout.delivery = "pickup"; askFinancing(); } },
+      ]
+    );
+  }
+
+  function askFinancing() {
+    appendChoiceMessage("How are you paying for it? A soft check never affects your credit score.", [
+      {
+        label: "Financing independently / cash",
+        onPick: () => { state.checkout.financing = "independent"; askCrossSell(); },
+      },
+      {
+        label: "Explore financing options (soft check)",
+        onPick: () => { state.checkout.financing = "dealer_financing"; askCrossSell(); },
+      },
+    ]);
+  }
+
+  function askCrossSell() {
+    appendChoiceMessage("If pricing or availability shifts slightly, can the dealer offer a close match?", [
+      { label: "Yes, show close matches", onPick: () => { state.checkout.crosssell = true; afterCrossSell(); } },
+      { label: "No, this exact vehicle only", onPick: () => { state.checkout.crosssell = false; afterCrossSell(); } },
+    ]);
+  }
+
+  function afterCrossSell() {
+    if (state.user) {
+      submitLeadInline();
+    } else {
+      appendInlineAuthCard();
+    }
+  }
+
+  function appendInlineAuthCard() {
+    const thread = el("chat-thread");
+    const wrap = document.createElement("div");
+    wrap.className = "msg msg-assistant msg-rich msg-auth-card";
+    wrap.innerHTML = `
+      <div class="auth-card-intro">Last step — create an account so I can email you the details and you can come back to this build anytime.</div>
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab active" data-tab="signup">Sign up</button>
+        <button type="button" class="modal-tab" data-tab="signin">Sign in</button>
+      </div>
+      <form>
+        <input type="email" placeholder="Email" required class="inline-auth-email" />
+        <input type="password" placeholder="Password" required minlength="8" class="inline-auth-password" />
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+      </form>
+      <div class="modal-error" hidden></div>`;
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
+
+    let mode = "signup";
+    const tabs = wrap.querySelectorAll(".modal-tab");
+    const submitBtn = wrap.querySelector("button[type=submit]");
+    tabs.forEach((t) =>
+      t.addEventListener("click", () => {
+        tabs.forEach((x) => x.classList.toggle("active", x === t));
+        mode = t.dataset.tab;
+        submitBtn.textContent = mode === "signup" ? "Create account" : "Sign in";
+      })
+    );
+
+    wrap.querySelector("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = wrap.querySelector(".inline-auth-email").value.trim();
+      const password = wrap.querySelector(".inline-auth-password").value;
+      const errorBox = wrap.querySelector(".modal-error");
+      errorBox.hidden = true;
+      try {
+        const path = mode === "signup" ? "/api/auth/signup?role=consumer" : "/api/auth/login";
+        state.user = await api(path, { method: "POST", body: { email, password } });
+        updateAuthButtons();
+        wrap.querySelector("form").remove();
+        tabs.forEach((t) => t.remove());
+        wrap.querySelector(".auth-card-intro").textContent = "You're in — wrapping up now.";
+        await submitLeadInline();
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.hidden = false;
       }
-      await finalizeCheckout();
-    });
-    el("confirm-done").addEventListener("click", () => closeModal("checkout-modal"));
-  }
-
-  function goToCheckoutStep(step) {
-    document.querySelectorAll(".checkout-step").forEach((s) => {
-      s.classList.toggle("active", s.dataset.step === step);
     });
   }
 
-  async function finalizeCheckout() {
+  async function submitLeadInline() {
     try {
       const lead = await api("/api/leads", {
         method: "POST",
@@ -438,26 +586,38 @@
           session_id: state.sessionId,
           is_home_delivery: state.checkout.delivery === "home",
           funding_strategy: state.checkout.financing,
-          dealer_cross_sell_allowed: state.checkout.crosssell === "yes",
+          dealer_cross_sell_allowed: !!state.checkout.crosssell,
         },
       });
-      renderConfirmSummary(lead);
-      el("checkout-modal").hidden = false;
-      goToCheckoutStep("confirm");
+      appendLeadConfirmation(lead);
     } catch (err) {
       appendMessage("assistant", `Couldn't finish that: ${err.message}`);
     }
   }
 
-  function renderConfirmSummary(lead) {
+  function appendLeadConfirmation(lead) {
+    const thread = el("chat-thread");
+    const wrap = document.createElement("div");
+    wrap.className = "msg msg-assistant msg-rich";
     const badge = lead.is_preferred_dealer
       ? '<span class="badge badge-preferred">Preferred dealer</span>'
       : '<span class="badge badge-standard">Standard dealer</span>';
-    el("confirm-summary").innerHTML = `
-      <dt>Vehicle</dt><dd>${lead.vehicle_specs || "—"}</dd>
-      <dt>Dealer</dt><dd>${lead.dealer_name || "—"} ${badge}</dd>
-      <dt>Status</dt><dd>${lead.status}</dd>
-    `;
+    wrap.innerHTML = `
+      <div>You're all set. Here's what's heading to the dealer:</div>
+      <dl class="confirm-summary">
+        <dt>Vehicle</dt><dd>${lead.vehicle_specs || "—"}</dd>
+        <dt>Dealer</dt><dd>${lead.dealer_name || "—"} ${badge}</dd>
+      </dl>
+      <div class="next-steps-note">
+        Here's what happens next:
+        <ul>
+          <li>We'll email you a welcome message with your build's render and the dealership's details</li>
+          <li>You'll get delivery or pickup details as soon as they're confirmed</li>
+          <li>Sign back in anytime to check on it — your build is saved to your account</li>
+        </ul>
+      </div>`;
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
   }
 
   document.addEventListener("DOMContentLoaded", init);

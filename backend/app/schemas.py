@@ -15,6 +15,7 @@ class ChatTurnSchema(BaseModel):
     detected_stock_color: str       # "none" or a color
     already_asked_condition: bool
     is_ready_for_finance: bool
+    requested_unavailable_vehicle: str  # "none", or the make/model they asked for that we don't carry
 
 
 # ---------- Auth ----------
@@ -82,7 +83,23 @@ class ChatTurnResponse(BaseModel):
     is_ready_for_finance: bool
     build_images: List[BuildImage] = []
     vehicle_options: List[VehicleOption] = []
+    unavailable_vehicle: Optional[str] = None
     geo_blocked: bool = False
+
+
+# ---------- Notify-me-when-available ----------
+class NotifyRequestIn(BaseModel):
+    session_id: str
+    email: EmailStr
+    requested_vehicle: str
+
+
+class NotifyRequestOut(BaseModel):
+    id: str
+    requested_vehicle: str
+
+    class Config:
+        from_attributes = True
 
 
 # ---------- Leads ----------

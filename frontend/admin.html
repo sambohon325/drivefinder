@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DriveFinder Admin — Cached Renders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+<div class="page">
+
+<nav class="topnav">
+  <a href="/" class="brand">DriveFinder<span class="dot">.</span><span class="brand-sub">&nbsp;Admin</span></a>
+  <div class="nav-right">
+    <a href="/" class="nav-dealer-link">Consumer site</a>
+  </div>
+</nav>
+
+<div class="page-content">
+  <main class="dealer-shell">
+    <div class="panel-header" style="margin-bottom:18px;">
+      <h3>Cached renders</h3>
+      <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:240px;" />
+    </div>
+    <p class="modal-sub" style="margin-bottom:20px;">
+      Every image here is reused across every user who matches that exact make/model/color/angle — that's the
+      whole cost-saving point. Delete one if it looks wrong; it'll regenerate fresh the next time someone needs it.
+    </p>
+    <div class="admin-grid" id="admin-grid"></div>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <a href="https://vicimus.com" target="_blank" rel="noopener" class="footer-logo-link" aria-label="Vicimus">
+    <img src="/assets/vicimus-logo.svg" alt="Vicimus" class="footer-logo" />
+  </a>
+</footer>
+
+</div>
+<script src="/js/admin.js"></script>
+</body>
+</html>

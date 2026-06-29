@@ -27,6 +27,7 @@ DEFAULT_STATE = {
     "current_model": "none",
     "stock_color": "none",
     "selected_option_id": None,
+    "body_style_preview_rendered": False,
     "clay_rendered": False,
     "options_generated": False,
     "final_set_generated": False,
@@ -123,6 +124,12 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
     # looping back on its own question.
     is_ready = turn.is_ready_for_finance or session.is_ready_for_finance
 
+    unavailable = (
+        turn.requested_unavailable_vehicle
+        if turn.requested_unavailable_vehicle and turn.requested_unavailable_vehicle != "none"
+        else None
+    )
+
     session.state = state
     session.is_ready_for_finance = is_ready
     db.add(session)
@@ -134,6 +141,7 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
         is_ready_for_finance=is_ready,
         build_images=build_images,
         vehicle_options=vehicle_options,
+        unavailable_vehicle=unavailable,
     )
 
 
@@ -180,6 +188,23 @@ def select_option(payload: schemas.SelectOptionRequest, db: Session = Depends(ge
     )
 
 
+@router.post("/notify-requests", response_model=schemas.NotifyRequestOut)
+def create_notify_request(payload: schemas.NotifyRequestIn, db: Session = Depends(get_db)):
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == payload.session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found.")
+
+    record = models.NotifyRequest(
+        session_id=session.id,
+        email=payload.email,
+        requested_vehicle=payload.requested_vehicle,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
 def _advance_build(state: dict):
     """Runs whichever build milestone is next due, given the current state.
     Returns (build_images, vehicle_options) — vehicle_options is only
@@ -192,8 +217,21 @@ def _advance_build(state: dict):
     build_images: list[schemas.BuildImage] = []
     vehicle_options: list[schemas.VehicleOption] = []
 
-    make, model = state["current_make"], state["current_model"]
     body_style = state["current_body_style"]
+
+    # Stage 0: body style only (no make/model yet) — a soft, deliberately
+    # blurred placeholder so the build visibly starts the moment someone
+    # says "SUV" or "truck", well before they've picked an exact model.
+    if body_style not in ("none", "", None) and not state.get("body_style_preview_rendered"):
+        url = image_cache.get_or_generate(
+            image_cache.cache_key("generic", body_style),
+            chat_logic.generic_body_style_prompt(body_style),
+        )
+        if url:
+            build_images.append(schemas.BuildImage(label="Getting started", url=url))
+        state["body_style_preview_rendered"] = True
+
+    make, model = state["current_make"], state["current_model"]
     has_vehicle = make not in ("none", "", None) and model not in ("none", "", None)
     if not has_vehicle:
         return build_images, vehicle_options

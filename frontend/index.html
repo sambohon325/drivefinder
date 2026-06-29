@@ -42,6 +42,10 @@
   <div id="app-shell" class="view view-app">
     <section class="chat-pane">
       <div class="chat-thread" id="chat-thread"></div>
+      <button class="build-tray-tab" id="build-tray-tab">
+        <span class="dot-badge"></span>
+        Your car build
+      </button>
       <div class="chat-cta-bar" id="chat-cta-bar">
         <button class="btn btn-primary" id="continue-btn">Continue to delivery &amp; financing</button>
       </div>
@@ -83,10 +87,6 @@
   </div>
 </div>
 
-<button class="build-tray-tab" id="build-tray-tab">
-  <span class="dot-badge"></span>
-  Your car build
-</button>
 <div class="build-tray-backdrop" id="build-tray-backdrop"></div>
 
 <footer class="site-footer">
@@ -119,50 +119,6 @@
       </div>
       <button type="submit" class="btn btn-primary btn-block" id="auth-submit">Sign in</button>
     </form>
-  </div>
-</div>
-
-<!-- Checkout modal: delivery -> financing -> sign up gate -> confirmation -->
-<div class="modal-overlay" id="checkout-modal" hidden>
-  <div class="modal-card">
-    <button class="modal-close" id="checkout-close">&times;</button>
-
-    <div class="checkout-step active" data-step="delivery">
-      <h3>How should it get to you?</h3>
-      <p class="modal-sub">Placeholder perks for now — final F&amp;I extras are being finalized.</p>
-      <div class="choice-group" id="delivery-choices">
-        <label class="choice-option"><input type="radio" name="delivery" value="home" checked /> Home delivery</label>
-        <label class="choice-option"><input type="radio" name="delivery" value="pickup" /> Pick up at the dealership</label>
-      </div>
-      <button class="btn btn-primary btn-block" id="delivery-next">Continue</button>
-    </div>
-
-    <div class="checkout-step" data-step="financing">
-      <h3>How are you paying for it?</h3>
-      <p class="modal-sub">A soft check never affects your credit score.</p>
-      <div class="choice-group" id="financing-choices">
-        <label class="choice-option"><input type="radio" name="financing" value="independent" checked /> I'm financing independently / paying cash</label>
-        <label class="choice-option"><input type="radio" name="financing" value="dealer_financing" /> Explore financing options (soft check)</label>
-      </div>
-      <button class="btn btn-primary btn-block" id="financing-next">Continue</button>
-    </div>
-
-    <div class="checkout-step" data-step="crosssell">
-      <h3>One quick check</h3>
-      <p class="modal-sub">If pricing or availability shifts slightly, can the dealer offer a close match?</p>
-      <div class="choice-group" id="crosssell-choices">
-        <label class="choice-option"><input type="radio" name="crosssell" value="yes" checked /> Yes, show me close matches</label>
-        <label class="choice-option"><input type="radio" name="crosssell" value="no" /> No, this exact vehicle only</label>
-      </div>
-      <button class="btn btn-primary btn-block" id="crosssell-next">Continue</button>
-    </div>
-
-    <div class="checkout-step" data-step="confirm">
-      <h3>You're set</h3>
-      <p class="modal-sub">Here's what's heading to the dealer.</p>
-      <dl class="confirm-summary" id="confirm-summary"></dl>
-      <button class="btn btn-primary btn-block" id="confirm-done">Done</button>
-    </div>
   </div>
 </div>
 

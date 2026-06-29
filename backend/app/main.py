@@ -1,6 +1,6 @@
 import shutil
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -10,6 +10,7 @@ from .auth_routes import router as auth_router
 from .chat_routes import router as chat_router
 from .lead_routes import router as lead_router
 from .dealer_routes import router as dealer_router
+from .admin_routes import router as admin_router, require_admin
 
 app = FastAPI(title="DriveFinder by Vicimus")
 
@@ -17,6 +18,7 @@ app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(lead_router)
 app.include_router(dealer_router)
+app.include_router(admin_router)
 
 app.mount("/images", StaticFiles(directory=str(config.IMAGE_CACHE_DIR)), name="images")
 app.mount("/css", StaticFiles(directory=str(config.FRONTEND_DIR / "css")), name="css")
@@ -47,3 +49,8 @@ def dealer_page():
 @app.get("/")
 def index_page():
     return FileResponse(str(config.FRONTEND_DIR / "index.html"))
+
+
+@app.get("/admin")
+def admin_page(_: bool = Depends(require_admin)):
+    return FileResponse(str(config.FRONTEND_DIR / "admin.html"))

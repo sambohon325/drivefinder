@@ -45,6 +45,49 @@ generates that render; every person after them gets a cache hit. See
 `IMAGE_CACHE_DIR` below — this directory is the whole cost-control strategy,
 so it needs to be on persistent storage, not wiped on every deploy.
 
+**If you change the prompt wording in `chat_logic.py`**, bump
+`IMAGE_PROMPT_VERSION` in your environment (or the default in `config.py`).
+It's folded into every cache key, so a bump makes every previously-cached
+render unreachable and forces a fresh one — without this, a prompt fix
+silently keeps serving the old (possibly wrong) cached images forever, which
+is exactly what happened once already.
+
+### Admin tool: reviewing and clearing cached renders
+
+Visit `/admin` (HTTP Basic Auth, separate from regular user/dealer accounts
+— set `ADMIN_USERNAME` / `ADMIN_PASSWORD`) to see every cached render with
+its filename, size, and age, and delete any that look wrong. Deleting just
+removes the file; it regenerates fresh the next time that exact spec comes
+up. Leave `ADMIN_PASSWORD` blank to disable the tool entirely.
+
+### The build progressively renders, in three stages
+
+1. **Body style only** ("show me an SUV") → an intentionally soft, blurred
+   generic placeholder for that body type — three of these exist total
+   (sedan/SUV/truck), so this stage costs almost nothing.
+2. **Make + model chosen, no color yet** → a sharp, de-badged "clay" render
+   in neutral grey.
+3. **A specific option is locked in** → the real multi-angle set (front,
+   side, rear, cockpit, seating) in the actual color.
+
+### Checkout is conversational, not a popup
+
+Delivery preference, financing approach, and the dealer-cross-sell question
+are asked as part of the chat thread itself (quick-reply buttons inline in
+the conversation), not a modal that covers the screen. Sign-up, when
+needed, is also an embedded card in the thread rather than a separate
+overlay. The only modal left is the nav's Sign in/Sign up, which is a
+different context (account management, not the build flow).
+
+### Notify-me-when-available
+
+If someone asks for a make/model that's not in inventory, the assistant
+names one or two close in-stock alternatives and offers a "notify me"
+capture (email + what they wanted), stored in `notify_requests`. **No
+notification pipeline actually emails these yet** — there's nowhere for
+that list to go until it's wired to something (Listmonk, presumably, given
+the rest of the stack). Right now it's just captured, not acted on.
+
 ### What's a placeholder right now
 
 These are intentionally stubbed so the prototype is testable without being
@@ -53,15 +96,46 @@ load-bearing for real users yet:
 - **Bumper credit pull** (`lead_routes.py`) — returns a hardcoded "Tier 1"
   result. Replace with the real Bumper API before this touches a real
   applicant's credit profile.
+- **Welcome email / delivery notifications** — the chat now *tells* the
+  buyer this is coming ("we'll email you a welcome message with your
+  build's render and dealership details..."), but no email actually sends.
+  That copy is describing the intended experience, not a working feature —
+  needs a real email pipeline before it's true.
 - **Dealer F&I perks** (free delivery, etc.) — copy-only on the frontend,
   not tied to real dealer agreements yet.
 - **California geo-block** — a keyword match on free-text location input.
   Fine for a demo, not a real compliance mechanism. Swap for an actual
   zip/state lookup before this goes anywhere near production traffic.
+- **"Preferred dealer" matching** — currently a static flag on the mock
+  inventory record, not actually influenced by the buyer's location or a
+  real Bumper sync. Real preferred-dealer routing needs Vicimus's actual
+  Bumper API, which this prototype has no access to.
+- **"Regular dealer" matching** — same mock data, no live lookup of real
+  local dealerships yet. See the open question below.
 - **Dealer inventory sync** — the dashboard shows a status string only.
 - **Dealer lead routing** — leads are stored with a `dealer_id` from the mock
   inventory match, but there's no real auth linking a dealer account to a
   specific dealership's leads yet (the dashboard is a placeholder render).
+
+### Open question: real local-dealer lookup
+
+The idea of finding actual nearby dealerships (e.g. searching "Toyota
+dealers near Fort Worth" and pulling back a real name, address, and phone
+number for outreach) needs a data source decision before it's worth
+building — this isn't something to guess at, since it carries an ongoing
+per-search cost regardless of which path is picked:
+
+- **Gemini search grounding** — since the chat already runs on Gemini, this
+  is the path requiring no new vendor relationship. Has its own per-search
+  pricing on top of the existing chat/image costs.
+- **Google Places API** — gives cleaner structured fields (address, phone,
+  hours) than parsing search snippets, but is a separate Google Cloud
+  product/billing setup.
+- **A dedicated search API** (Serper, SerpAPI, Bing) — another vendor,
+  another key to manage.
+
+None of these are wired up yet. Worth a short conversation about budget and
+which one before building against it.
 
 ## Running it locally
 
@@ -91,6 +165,8 @@ GEMINI_API_KEY=... SECRET_KEY=... FRONTEND_DIR=../frontend uvicorn app.main:app 
 | `ENVIRONMENT` | No | Set to `production` to enable secure (HTTPS-only) cookies |
 | `CHAT_MODEL` | No | Defaults to `gemini-2.5-flash` |
 | `IMAGE_MODEL` | No | Defaults to `gemini-3.1-flash-image-preview` (see note below) |
+| `IMAGE_PROMPT_VERSION` | No | Bump on any meaningful prompt change — see above |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | No | Enables `/admin`. Leave password blank to disable it |
 
 **Heads up:** `gemini-2.5-flash-image` (the model in the original prototype)
 is scheduled to shut down by Google on **October 2, 2026**. This build
@@ -121,6 +197,7 @@ pricing/deprecation page before launch in case that timeline shifts.
    - `GEMINI_API_KEY`
    - `SECRET_KEY` (generate one: `python3 -c "import secrets; print(secrets.token_hex(32))"`)
    - `ENVIRONMENT=production`
+   - `ADMIN_USERNAME` / `ADMIN_PASSWORD` (optional — enables `/admin` for reviewing cached renders)
 
 4. **Add persistent storage** (Coolify → your app → Storages). Mount two
    volumes so the database and image cache survive redeploys:

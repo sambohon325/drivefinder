@@ -35,8 +35,11 @@ def system_instruction() -> str:
         "Acknowledge it naturally and help them explore.\n"
         "- Ask contextual questions about powertrain (Gas, Hybrid, EV) or feature layout (Sunroof, Moonroof) "
         "naturally if they are hunting for a specific tier.\n"
-        "- If the user requests a model we don't have, tell them it is unavailable and offer options from our "
-        "inventory. Do NOT set 'detected_model' to the unavailable name until they accept an available option.\n"
+        "- If the user requests a make/model we don't have, tell them plainly that we don't carry it, set "
+        "'requested_unavailable_vehicle' to exactly what they asked for (e.g. 'Honda Civic'), and immediately "
+        "suggest one or two specific in-stock alternatives by name that are reasonably close (similar body "
+        "style or price range) rather than just listing everything we have. Do NOT set 'detected_model' to "
+        "the unavailable name until they accept an available option.\n"
         "- If the user explicitly states 'new' or 'used', set 'already_asked_condition' to true.\n"
         "- If they select a vehicle that lists a color, capture it in 'detected_stock_color'.\n"
         "- Once a clear Make and Model are determined, summarize cleanly and set 'is_ready_for_finance' to true.\n"
@@ -46,6 +49,27 @@ def system_instruction() -> str:
         "on is just to answer any other questions about the vehicle, not to re-ask if they're ready. If they "
         "say something like 'yes' or 'ready' after you've already covered this, acknowledge it briefly and "
         "point them to that button rather than repeating the question."
+    )
+
+
+_GENERIC_BODY_DESC = {
+    "sedan": "a generic modern mid-size four-door sedan silhouette",
+    "suv": "a generic modern mid-size SUV crossover silhouette",
+    "truck": "a generic modern crew-cab pickup truck silhouette",
+}
+
+
+def generic_body_style_prompt(body_style: str) -> str:
+    """The very first thing shown, the instant a body style is mentioned —
+    before any specific make or model is chosen. Deliberately soft/blurred
+    so it reads as 'we're getting started,' not as a finished render."""
+    desc = _GENERIC_BODY_DESC.get(body_style, _GENERIC_BODY_DESC["sedan"])
+    return (
+        f"A soft, gently out-of-focus studio product photograph of {desc}, entirely unbranded with no visible "
+        f"badges, manufacturer marks, or model-specific details, finished in a uniform neutral light-grey "
+        f"color. Apply a soft dreamy blur across the entire image, like an indistinct placeholder silhouette "
+        f"rather than a sharp product shot — intentionally vague since no exact model has been chosen yet. A "
+        f"uniform 3/4 front perspective view angle. {STUDIO_PRESET}"
     )
 
 

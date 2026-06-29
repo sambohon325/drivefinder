@@ -361,6 +361,66 @@ input::placeholder { color: var(--ink-faint); }
   letter-spacing: 0.05em;
 }
 
+/* Richer assistant bubbles (choice prompts, inline auth, confirmations) need
+   more room than a normal chat line. */
+.msg-rich { max-width: 92%; }
+
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.choice-pill {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.choice-pill:hover:not(:disabled) { border-color: var(--ignition); }
+.choice-pill:disabled { cursor: default; opacity: 0.45; }
+.choice-pill.chosen {
+  border-color: var(--ignition);
+  background: var(--ignition-soft);
+  opacity: 1;
+}
+
+.msg-auth-card .auth-card-intro { margin-bottom: 12px; line-height: 1.5; }
+.msg-auth-card form { margin-top: 4px; }
+.msg-auth-card input { margin-bottom: 8px; }
+.msg-auth-card .modal-tabs { margin-bottom: 12px; max-width: 260px; }
+
+.next-steps-note {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.7;
+}
+.next-steps-note ul { margin: 6px 0 0; padding-left: 18px; }
+.next-steps-note li { margin-bottom: 4px; }
+
+.notify-card {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.notify-card-row { display: flex; gap: 8px; margin-top: 8px; }
+.notify-card-row input { flex: 1; }
+.notify-card-confirmed {
+  color: var(--verified);
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
 .typing-dots {
   align-self: flex-start;
   display: flex;
@@ -805,27 +865,27 @@ input::placeholder { color: var(--ink-faint); }
   .build-tray-backdrop.is-open { opacity: 1; pointer-events: auto; }
 
   .build-tray-tab {
-    position: fixed;
-    right: 14px;
-    bottom: 86px;
-    z-index: 68;
     display: flex;
+    width: 100%;
     align-items: center;
+    justify-content: center;
     gap: 7px;
     padding: 11px 16px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: linear-gradient(135deg, #8FCCFF 0%, #4DA8FF 45%, #2569B8 100%);
-    color: #06182B;
-    font-size: 12.5px;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+    background: linear-gradient(135deg, #6EE7DD 0%, #3FC4B5 50%, #1F9C8F 100%);
+    color: #04231F;
+    font-size: 13px;
     font-weight: 700;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 20px rgba(77, 168, 255, 0.4);
+    letter-spacing: 0.01em;
   }
   .build-tray-tab .dot-badge {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #06182B;
+    background: #04231F;
     opacity: 0;
   }
   .build-tray-tab.has-update .dot-badge {
@@ -833,9 +893,9 @@ input::placeholder { color: var(--ink-faint); }
     animation: pulse-dot 1.6s infinite;
   }
   @keyframes pulse-dot {
-    0% { box-shadow: 0 0 0 0 rgba(6, 24, 43, 0.5); }
-    70% { box-shadow: 0 0 0 6px rgba(6, 24, 43, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(6, 24, 43, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(4, 35, 31, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(4, 35, 31, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(4, 35, 31, 0); }
   }
 
   .options-grid { grid-template-columns: repeat(2, 1fr); }
@@ -981,3 +1041,44 @@ input::placeholder { color: var(--ink-faint); }
   font-size: 13px;
   line-height: 1.7;
 }
+
+/* ===== Admin: cached render review ===== */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.admin-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+  background: var(--surface-raised);
+}
+.admin-card-body { padding: 10px; }
+.admin-card-name {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  word-break: break-all;
+  margin-bottom: 5px;
+  color: var(--ink);
+}
+.admin-card-meta {
+  font-size: 10.5px;
+  color: var(--ink-muted);
+  margin-bottom: 10px;
+}
+.admin-delete-btn {
+  width: 100%;
+  font-size: 12px;
+  padding: 7px 0;
+  color: var(--danger);
+  border-color: rgba(229, 72, 77, 0.4);
+}
+.admin-delete-btn:hover { background: rgba(229, 72, 77, 0.12); }
