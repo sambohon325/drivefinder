@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import shutil
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -15,6 +16,11 @@ from .lead_routes import router as lead_router
 from .dealer_routes import router as dealer_router
 from .admin_routes import router as admin_router, require_admin
 from . import regions as regions_module, prewarm, image_cache
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 
 app = FastAPI(title="DriveFinder by Vicimus")
 

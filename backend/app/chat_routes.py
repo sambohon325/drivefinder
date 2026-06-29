@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from . import models, schemas, chat_logic, gemini_client, image_cache, inventory as inv, regions as regions_module
 from .database import get_db
+
+logger = logging.getLogger("drivefinder.chat")
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -129,13 +133,22 @@ def send_message(payload: schemas.SendMessageRequest, db: Session = Depends(get_
         raise HTTPException(503, str(e))
     except Exception as e:
         code = getattr(e, "code", None)
+        details = getattr(e, "details", None) or getattr(e, "response_json", None)
+        logger.error(
+            "Gemini chat-turn call failed: type=%s code=%s message=%s details=%s",
+            type(e).__name__, code, str(e), details,
+        )
         if code == 429:
             raise HTTPException(
                 429,
-                "We're getting rate-limited by the AI provider right now (this already retried a few "
-                "times). Give it a moment and try again.",
+                f"We're getting rate-limited by the AI provider right now (HTTP 429, already retried a "
+                f"few times). Give it a moment and try again.",
             )
-        raise HTTPException(502, "Sourcing gateway was temporarily interrupted. Please try again.")
+        raise HTTPException(
+            502,
+            f"Sourcing gateway was temporarily interrupted ({type(e).__name__}"
+            f"{f' {code}' if code else ''}). Please try again.",
+        )
 
     if turn.detected_body_style != "none":
         state["current_body_style"] = turn.detected_body_style.lower()

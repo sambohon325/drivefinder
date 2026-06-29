@@ -1,7 +1,10 @@
+import logging
 import re
 from typing import Optional
 
 from . import config, gemini_client
+
+logger = logging.getLogger("drivefinder.image_cache")
 
 
 def _slug(value: str) -> str:
@@ -47,7 +50,12 @@ def get_or_generate(key: str, prompt: str, meta: Optional[dict] = None) -> Optio
 
     try:
         ok = gemini_client.generate_image(prompt, filepath)
-    except Exception:
+    except Exception as e:
+        code = getattr(e, "code", None)
+        logger.error(
+            "Image generation failed for key=%s: type=%s code=%s message=%s",
+            key, type(e).__name__, code, str(e),
+        )
         return None
 
     if ok and meta is not None:
