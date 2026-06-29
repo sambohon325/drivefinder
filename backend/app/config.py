@@ -17,7 +17,7 @@ IMAGE_MODEL = os.environ.get("IMAGE_MODEL", "gemini-3.1-flash-image-preview")
 # It's folded into every cache key, so a bump makes every old render
 # unreachable and forces a fresh generation — without it, fixing a prompt
 # silently keeps serving the old (wrong) cached images forever.
-IMAGE_PROMPT_VERSION = os.environ.get("IMAGE_PROMPT_VERSION", "v2")
+IMAGE_PROMPT_VERSION = os.environ.get("IMAGE_PROMPT_VERSION", "v3")
 
 # --- Admin (internal use only — reviewing/clearing cached renders) ---
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")

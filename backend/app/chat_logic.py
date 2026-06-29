@@ -168,14 +168,21 @@ def interior_cockpit_prompt(make: str, model: str) -> str:
 
 def interior_seating_prompt(make: str, model: str, body_style: str) -> str:
     tier = _market_tier(make)
+    orientation_lock = (
+        "Every seat in the cabin — front and rear — faces the same direction: forward, toward the "
+        "windshield, exactly like a real car. No seat is rotated, reversed, flipped, or facing sideways, "
+        "backward, or toward another seat. The rear bench is a single continuous forward-facing unit; "
+        "individual seat sections never face inward toward each other or outward away from the direction "
+        "of travel."
+    )
     if body_style == "suv":
         return (
             f"A high-fidelity studio detailed photograph taken inside the middle seat passenger cabin area of a "
-            f"{tier} {make} {model} SUV, matching its real cabin width and seating layout. The middle "
-            f"passenger row features an immaculate, standalone set of leather captain's chairs with crisp "
-            f"diamond-quilted stitching. A clear, wide, completely empty dark carpeted center aisle pathway "
-            f"separates the chairs, and the third-row seating architecture is safely constrained far in the "
-            f"background distance. The detailed backs of the front driver and passenger bucket seats are "
+            f"{tier} {make} {model} SUV, matching its real cabin width and seating layout. {orientation_lock} "
+            f"The middle passenger row features an immaculate, standalone set of leather captain's chairs with "
+            f"crisp diamond-quilted stitching. A clear, wide, completely empty dark carpeted center aisle "
+            f"pathway separates the chairs, and the third-row seating architecture is safely constrained far in "
+            f"the background distance. The detailed backs of the front driver and passenger bucket seats are "
             f"clearly visible, normally positioned, and occupy the lower left and right foreground corners of "
             f"the frame layout. The painted steel interior metal trim framework surrounding the seats is "
             f"finished in a solid liquid metallic theme, strictly zero blue panels, zero red door accents. All "
@@ -183,11 +190,12 @@ def interior_seating_prompt(make: str, model: str, body_style: str) -> str:
         )
     return (
         f"A high-fidelity studio detailed photograph taken inside the rear seat passenger row cabin area of a "
-        f"{tier} {make} {model}, matching its real cabin width and seating layout. Immaculate uniform leather "
-        f"backseat upholstery textures with quilted diamond-stitching details. The detailed backs of the front "
-        f"driver and passenger bucket seats are clearly visible, normally positioned, and occupy the lower left "
-        f"and right foreground corners of the frame layout. The floor area between the seating rows is an "
-        f"empty, realistic wide spacious dark carpeted floor area. The painted steel interior metal trim "
-        f"framework surrounding the seats is finished in a solid liquid metallic theme, strictly zero blue "
-        f"panels, zero red door accents. All side window profiles are heavily dark smoke tinted glass surfaces."
+        f"{tier} {make} {model}, matching its real cabin width and seating layout. {orientation_lock} "
+        f"Immaculate uniform leather backseat upholstery textures with quilted diamond-stitching details. The "
+        f"detailed backs of the front driver and passenger bucket seats are clearly visible, normally "
+        f"positioned, and occupy the lower left and right foreground corners of the frame layout. The floor "
+        f"area between the seating rows is an empty, realistic wide spacious dark carpeted floor area. The "
+        f"painted steel interior metal trim framework surrounding the seats is finished in a solid liquid "
+        f"metallic theme, strictly zero blue panels, zero red door accents. All side window profiles are "
+        f"heavily dark smoke tinted glass surfaces."
     )

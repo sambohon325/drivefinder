@@ -24,7 +24,6 @@ def create_lead(
     color = state.get("stock_color", "none")
 
     car = inv.best_match_for_lead(make, model_name, color)
-    is_preferred = "non_affiliated" not in car.get("dealer_id", "")
 
     logistics_intent = "Home Delivery Request" if payload.is_home_delivery else "Dealership VIP Pickup Request"
 
@@ -42,7 +41,6 @@ def create_lead(
         vehicle_specs=f"{car.get('year')} {car.get('make')} {car.get('model')}",
         dealer_id=car.get("dealer_id"),
         dealer_name=car.get("dealer_name"),
-        is_preferred_dealer=is_preferred,
         funding_strategy=payload.funding_strategy,
         credit_tier=credit_tier,
         logistics_intent=logistics_intent,

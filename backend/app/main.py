@@ -5,12 +5,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from . import config
-from .database import init_db
+from .database import init_db, SessionLocal
 from .auth_routes import router as auth_router
 from .chat_routes import router as chat_router
 from .lead_routes import router as lead_router
 from .dealer_routes import router as dealer_router
 from .admin_routes import router as admin_router, require_admin
+from . import regions as regions_module
 
 app = FastAPI(title="DriveFinder by Vicimus")
 
@@ -49,6 +50,12 @@ def on_startup():
     # real inventory feed may replace it later.
     if not config.MOCK_DB_PATH.exists() and config.SEED_MOCK_DB_PATH.exists():
         shutil.copy(config.SEED_MOCK_DB_PATH, config.MOCK_DB_PATH)
+
+    db = SessionLocal()
+    try:
+        regions_module.seed_region_table(db)
+    finally:
+        db.close()
 
 
 @app.get("/health")

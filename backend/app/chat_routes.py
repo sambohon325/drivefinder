@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from . import models, schemas, chat_logic, gemini_client, image_cache, inventory as inv
+from . import models, schemas, chat_logic, gemini_client, image_cache, inventory as inv, regions as regions_module
 from .database import get_db
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -21,6 +21,11 @@ GEO_BLOCKED_MESSAGE = (
     "remote sourcing there yet \u2014 sorry about that. We'll let you know the moment that changes."
 )
 
+REGION_NOT_SUPPORTED_MESSAGE = (
+    "DriveFinder is still rolling out one market at a time, and we're not in your area yet \u2014 sorry "
+    "about that. We're expanding alongside our dealer network, so check back soon."
+)
+
 DEFAULT_STATE = {
     "current_body_style": "none",
     "current_make": "none",
@@ -37,6 +42,8 @@ DEFAULT_STATE = {
 def start_session(payload: schemas.StartSessionRequest, db: Session = Depends(get_db)):
     location = (payload.location or "").strip().lower()
 
+    # Hardcoded on purpose — this is a legal constraint, not a business
+    # rollout decision, so it's never exposed as an admin toggle.
     if location and any(k in location for k in GEO_BLOCKED_KEYWORDS):
         return schemas.ChatTurnResponse(
             response_text=GEO_BLOCKED_MESSAGE,
@@ -44,6 +51,26 @@ def start_session(payload: schemas.StartSessionRequest, db: Session = Depends(ge
             is_ready_for_finance=False,
             geo_blocked=True,
         )
+
+    # Admin-controlled rollout gate: only block if we can actually identify a
+    # specific state/province AND it's been explicitly disabled — an
+    # unrecognized location is let through rather than guessed at.
+    if location:
+        detected = regions_module.detect_region(location)
+        if detected:
+            country, code, _name = detected
+            row = (
+                db.query(models.RegionAvailability)
+                .filter(models.RegionAvailability.country == country, models.RegionAvailability.code == code)
+                .first()
+            )
+            if row and not row.is_enabled:
+                return schemas.ChatTurnResponse(
+                    response_text=REGION_NOT_SUPPORTED_MESSAGE,
+                    state={},
+                    is_ready_for_finance=False,
+                    geo_blocked=True,
+                )
 
     session = models.ChatSession(location=location or None, state=dict(DEFAULT_STATE))
     db.add(session)
@@ -277,21 +304,25 @@ def _advance_build(state: dict):
     vehicle_options: list[schemas.VehicleOption] = []
 
     body_style = state["current_body_style"]
-
-    # Stage 1: body style only (no make/model yet) — a soft, deliberately
-    # blurred placeholder so the build visibly starts the moment someone
-    # says "SUV" or "truck", well before they've picked an exact model.
-    if body_style not in ("none", "", None) and not state.get("body_style_preview_rendered"):
-        url = image_cache.get_or_generate(
-            image_cache.cache_key("generic", body_style),
-            chat_logic.generic_body_style_prompt(body_style),
-        )
-        if url:
-            build_images.append(schemas.BuildImage(label="Getting started", url=url))
-        state["body_style_preview_rendered"] = True
-
     make, model = state["current_make"], state["current_model"]
     has_vehicle = make not in ("none", "", None) and model not in ("none", "", None)
+
+    # Stage 1: body style only — but only when we don't already know the
+    # exact make/model in this same turn. If someone jumps straight to
+    # "Toyota Camry," there's no reason to flash a generic blurred sedan
+    # for a moment before the real options replace it.
+    if body_style not in ("none", "", None) and not state.get("body_style_preview_rendered"):
+        if has_vehicle:
+            state["body_style_preview_rendered"] = True  # skip the image, but still mark the rail stage done
+        else:
+            url = image_cache.get_or_generate(
+                image_cache.cache_key("generic", body_style),
+                chat_logic.generic_body_style_prompt(body_style),
+            )
+            if url:
+                build_images.append(schemas.BuildImage(label="Getting started", url=url))
+            state["body_style_preview_rendered"] = True
+
     if not has_vehicle:
         return build_images, vehicle_options
 

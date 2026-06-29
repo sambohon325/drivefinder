@@ -95,7 +95,7 @@
       if (!message) return;
       input.value = "";
       appendMessage("user", message);
-      showLoader("Getting your car ready…");
+      showLoader("Building your selection…");
       try {
         const turn = await api("/api/chat/message", {
           method: "POST",
@@ -140,7 +140,7 @@
     const loader = document.createElement("div");
     loader.className = "car-loader";
     loader.id = "car-loader";
-    loader.innerHTML = `<img src="/assets/vicimus-icon.svg" class="car-loader-icon" alt="" /><span>${message}</span>`;
+    loader.innerHTML = `<span class="car-loader-dot"></span><span>${message}</span>`;
     thread.appendChild(loader);
     thread.scrollTop = thread.scrollHeight;
   }
@@ -281,7 +281,7 @@
       c.style.opacity = "0.5";
       c.style.pointerEvents = "none";
     });
-    showLoader("Building your car…");
+    showLoader("Building your selection…");
 
     try {
       const turn = await api("/api/chat/select-option", {
@@ -631,14 +631,11 @@
     const thread = el("chat-thread");
     const wrap = document.createElement("div");
     wrap.className = "msg msg-assistant msg-rich";
-    const badge = lead.is_preferred_dealer
-      ? '<span class="badge badge-preferred">Preferred dealer</span>'
-      : '<span class="badge badge-standard">Standard dealer</span>';
     wrap.innerHTML = `
       <div>You're all set. Here's what's heading to the dealer:</div>
       <dl class="confirm-summary">
         <dt>Vehicle</dt><dd>${lead.vehicle_specs || "—"}</dd>
-        <dt>Dealer</dt><dd>${lead.dealer_name || "—"} ${badge}</dd>
+        <dt>Dealer</dt><dd>${lead.dealer_name || "—"}</dd>
       </dl>
       <div class="next-steps-note">
         Here's what happens next:

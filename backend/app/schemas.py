@@ -114,7 +114,6 @@ class LeadOut(BaseModel):
     id: str
     vehicle_specs: Optional[str]
     dealer_name: Optional[str]
-    is_preferred_dealer: bool
     status: str
 
     class Config:

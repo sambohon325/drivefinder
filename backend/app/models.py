@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from sqlalchemy import (
-    Column, String, Integer, Boolean, DateTime, ForeignKey, Text, JSON
+    Column, String, Integer, Boolean, DateTime, ForeignKey, Text, JSON, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 
@@ -94,7 +94,6 @@ class Lead(Base):
     vehicle_specs = Column(String, nullable=True)
     dealer_id = Column(String, nullable=True)
     dealer_name = Column(String, nullable=True)
-    is_preferred_dealer = Column(Boolean, default=False)
 
     funding_strategy = Column(String, nullable=True)
     credit_tier = Column(String, nullable=True)
@@ -118,3 +117,20 @@ class NotifyRequest(Base):
     email = Column(String, nullable=False)
     requested_vehicle = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RegionAvailability(Base):
+    """Admin-toggleable rollout control: which US states / Canadian
+    provinces DriveFinder is actually live in. Separate from the hardcoded
+    California franchise-law block on purpose — that one is a legal
+    constraint, not a business decision, so it can't be flipped back on
+    from here even by accident."""
+    __tablename__ = "region_availability"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    country = Column(String, nullable=False)  # "US" | "CA"
+    code = Column(String, nullable=False)      # e.g. "TX", "ON"
+    name = Column(String, nullable=False)       # e.g. "Texas", "Ontario"
+    is_enabled = Column(Boolean, default=True)
+
+    __table_args__ = (UniqueConstraint("country", "code", name="uq_region_country_code"),)

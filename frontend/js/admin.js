@@ -2,6 +2,7 @@
   const el = (id) => document.getElementById(id);
   let allImages = [];
 
+  // ---------- Cached renders ----------
   async function load() {
     const grid = el("admin-grid");
     grid.innerHTML = '<div class="empty-state">Loading…</div>';
@@ -63,4 +64,78 @@
   });
 
   load();
+
+  // ---------- Region availability ----------
+  async function loadRegions() {
+    try {
+      const res = await fetch("/api/admin/regions", { credentials: "include" });
+      if (!res.ok) throw new Error("Could not load regions.");
+      const regions = await res.json();
+      renderRegionGroup("region-grid-us", regions.filter((r) => r.country === "US"));
+      renderRegionGroup("region-grid-ca", regions.filter((r) => r.country === "CA"));
+    } catch (err) {
+      el("region-grid-us").innerHTML = `<div class="empty-state">${err.message}</div>`;
+    }
+  }
+
+  function renderRegionGroup(gridId, regionList) {
+    const grid = el(gridId);
+    grid.innerHTML = "";
+    regionList.forEach((r) => {
+      const isLocked = r.country === "US" && r.code === "CA";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `region-toggle${r.is_enabled ? " is-enabled" : ""}${isLocked ? " is-locked" : ""}`;
+      btn.innerHTML = `
+        <span class="region-code">${r.code}</span>
+        <span class="region-name">${r.name}</span>
+        <span class="region-state">${isLocked ? "LEGAL" : r.is_enabled ? "ON" : "OFF"}</span>`;
+      if (isLocked) {
+        btn.title = "Blocked separately due to franchise law — not togglable here.";
+      } else {
+        btn.addEventListener("click", () => toggleRegion(r.country, r.code, btn));
+      }
+      grid.appendChild(btn);
+    });
+  }
+
+  async function toggleRegion(country, code, btn) {
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/api/admin/regions/${country}/${code}/toggle`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Toggle failed.");
+      const updated = await res.json();
+      btn.classList.toggle("is-enabled", updated.is_enabled);
+      btn.querySelector(".region-state").textContent = updated.is_enabled ? "ON" : "OFF";
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.querySelectorAll(".region-bulk-actions button").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const country = btn.dataset.country;
+      const enabled = btn.dataset.enabled === "true";
+      const label = country === "US" ? "US states" : "Canadian provinces";
+      if (!confirm(`${enabled ? "Enable" : "Disable"} all ${label}?`)) return;
+      try {
+        const res = await fetch(`/api/admin/regions/${country}/bulk?enabled=${enabled}`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Bulk update failed.");
+        await loadRegions();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
+  loadRegions();
 })();
+

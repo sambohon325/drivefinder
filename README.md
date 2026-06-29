@@ -2,9 +2,12 @@
 
 An AI chat-based car finder. The buyer describes what they want; the assistant
 narrows it down against inventory and renders the build alongside the
-conversation. Leads get routed to preferred (Vicimus client) or standard
-dealers. A separate `/dealer` portal is a placeholder for dealers to sign in
-or start a 30-day trial.
+conversation. Every dealer in the system is a Vicimus customer — DriveFinder
+only operates in markets where Vicimus already has dealer coverage, managed
+state-by-state and province-by-province from `/admin` (see "Region
+availability" below), expanding market by market rather than trying to
+serve everywhere on day one. A separate `/dealer` portal is a placeholder for
+dealers to sign in or start a 30-day trial.
 
 ## How it's put together
 
@@ -60,6 +63,31 @@ its filename, size, and age, and delete any that look wrong. Deleting just
 removes the file; it regenerates fresh the next time that exact spec comes
 up. Leave `ADMIN_PASSWORD` blank to disable the tool entirely.
 
+### Region availability
+
+Also on `/admin`: every US state and Canadian province/territory, each with
+its own on/off toggle, split into two groups. This is what the location gate
+actually checks — **not** an environment variable — so it can be changed
+live without a redeploy.
+
+- **Seeded all-enabled** on first boot (`regions.py` → `seed_region_table`),
+  matching "open to everyone for testing." Never re-seeds after that, so
+  toggles you make survive restarts and redeploys.
+- **"Enable all" / "Disable all"** per country are there for the realistic
+  go-live workflow: flip a whole country off, then selectively re-enable
+  the handful of states you've actually launched in, rather than clicking
+  every toggle individually.
+- **California is excluded from the toggle grid** (shown as "LEGAL," not
+  clickable) — it's blocked by the separate, hardcoded franchise-law check
+  in `chat_routes.py`, which always runs first regardless of what this
+  table says. That's intentional: a legal constraint shouldn't be one
+  accidental admin click away from being switched back on.
+- Detecting *which* state/province someone's in from a free-text location
+  field is still just matching against state/province names and
+  abbreviations (`regions.detect_region`) — fine for testing, not a real
+  geocoding lookup. An unrecognized location is let through rather than
+  blocked, so this only restricts places it can actually identify.
+
 ### The build progressively renders, in three stages
 
 1. **Body style only** ("show me an SUV") → an intentionally soft, blurred
@@ -103,39 +131,27 @@ load-bearing for real users yet:
   needs a real email pipeline before it's true.
 - **Dealer F&I perks** (free delivery, etc.) — copy-only on the frontend,
   not tied to real dealer agreements yet.
-- **California geo-block** — a keyword match on free-text location input.
-  Fine for a demo, not a real compliance mechanism. Swap for an actual
-  zip/state lookup before this goes anywhere near production traffic.
-- **"Preferred dealer" matching** — currently a static flag on the mock
-  inventory record, not actually influenced by the buyer's location or a
-  real Bumper sync. Real preferred-dealer routing needs Vicimus's actual
-  Bumper API, which this prototype has no access to.
-- **"Regular dealer" matching** — same mock data, no live lookup of real
-  local dealerships yet. See the open question below.
+- **California geo-block** — a hardcoded keyword match on free-text
+  location input, kept deliberately separate from the region-availability
+  table (it's a legal constraint, not a business rollout decision, so it
+  can't accidentally be toggled back on from the admin UI). The region
+  allowlist itself is real (DB-backed, admin-toggleable — see below), but
+  detecting *which* state/province from free text is still just text
+  matching, not a real geocoding lookup. Swap for an actual zip/state
+  lookup before this goes anywhere near production traffic.
+- **Dealer matching** — every dealer in the mock inventory is treated as a
+  Vicimus customer (no more preferred/standard distinction — that's the
+  point of the region gate), but matching itself is still mock data, not a
+  real Bumper sync tied to which dealers actually carry which inventory.
 - **Dealer inventory sync** — the dashboard shows a status string only.
 - **Dealer lead routing** — leads are stored with a `dealer_id` from the mock
   inventory match, but there's no real auth linking a dealer account to a
   specific dealership's leads yet (the dashboard is a placeholder render).
 
-### Open question: real local-dealer lookup
-
-The idea of finding actual nearby dealerships (e.g. searching "Toyota
-dealers near Fort Worth" and pulling back a real name, address, and phone
-number for outreach) needs a data source decision before it's worth
-building — this isn't something to guess at, since it carries an ongoing
-per-search cost regardless of which path is picked:
-
-- **Gemini search grounding** — since the chat already runs on Gemini, this
-  is the path requiring no new vendor relationship. Has its own per-search
-  pricing on top of the existing chat/image costs.
-- **Google Places API** — gives cleaner structured fields (address, phone,
-  hours) than parsing search snippets, but is a separate Google Cloud
-  product/billing setup.
-- **A dedicated search API** (Serper, SerpAPI, Bing) — another vendor,
-  another key to manage.
-
-None of these are wired up yet. Worth a short conversation about budget and
-which one before building against it.
+Deliberately **not** building: live web search/scraping for dealers outside
+Vicimus's network. The model going forward is region-gated and
+Vicimus-customers-only — expand market by market (alongside regional
+marketing) rather than try to surface every dealership everywhere.
 
 ## Running it locally
 

@@ -2,8 +2,10 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from sqlalchemy.orm import Session
 
-from . import config
+from . import config, models
+from .database import get_db
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 security = HTTPBasic()
@@ -46,3 +48,49 @@ def delete_image(filename: str, _: bool = Depends(require_admin)):
         raise HTTPException(404, "Not found.")
     filepath.unlink()
     return {"deleted": filename}
+
+
+@router.get("/regions")
+def list_regions(_: bool = Depends(require_admin), db: Session = Depends(get_db)):
+    rows = (
+        db.query(models.RegionAvailability)
+        .order_by(models.RegionAvailability.country, models.RegionAvailability.name)
+        .all()
+    )
+    return [
+        {"country": r.country, "code": r.code, "name": r.name, "is_enabled": r.is_enabled}
+        for r in rows
+    ]
+
+
+@router.post("/regions/{country}/{code}/toggle")
+def toggle_region(country: str, code: str, _: bool = Depends(require_admin), db: Session = Depends(get_db)):
+    row = (
+        db.query(models.RegionAvailability)
+        .filter(models.RegionAvailability.country == country.upper(), models.RegionAvailability.code == code.upper())
+        .first()
+    )
+    if not row:
+        raise HTTPException(404, "Region not found.")
+    row.is_enabled = not row.is_enabled
+    db.add(row)
+    db.commit()
+    return {"country": row.country, "code": row.code, "name": row.name, "is_enabled": row.is_enabled}
+
+
+@router.post("/regions/{country}/bulk")
+def bulk_set_country(
+    country: str, enabled: bool, _: bool = Depends(require_admin), db: Session = Depends(get_db)
+):
+    """Quick 'turn everything on/off for this country' action — the
+    realistic go-live workflow is flipping a whole country off, then
+    selectively re-enabling the handful of launched states, rather than
+    clicking 50+ individual toggles."""
+    country = country.upper()
+    if country not in ("US", "CA"):
+        raise HTTPException(400, "country must be 'US' or 'CA'.")
+    db.query(models.RegionAvailability).filter(models.RegionAvailability.country == country).update(
+        {"is_enabled": enabled}
+    )
+    db.commit()
+    return {"country": country, "is_enabled": enabled}

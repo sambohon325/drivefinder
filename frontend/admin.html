@@ -21,15 +21,46 @@
 
 <div class="page-content">
   <main class="dealer-shell">
-    <div class="panel-header" style="margin-bottom:18px;">
-      <h3>Cached renders</h3>
-      <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:240px;" />
-    </div>
-    <p class="modal-sub" style="margin-bottom:20px;">
-      Every image here is reused across every user who matches that exact make/model/color/angle — that's the
-      whole cost-saving point. Delete one if it looks wrong; it'll regenerate fresh the next time someone needs it.
-    </p>
-    <div class="admin-grid" id="admin-grid"></div>
+    <section class="admin-section">
+      <div class="panel-header" style="margin-bottom:10px;">
+        <h3>Region availability</h3>
+      </div>
+      <p class="modal-sub" style="margin-bottom:18px;">
+        Controls where DriveFinder is actually open. Set to all-enabled for testing right now — flip
+        individual states/provinces off, or use the bulk actions, as you launch market by market.
+        California is blocked separately for legal reasons and isn't togglable here.
+      </p>
+
+      <div class="region-country-header">
+        <h4>United States</h4>
+        <div class="region-bulk-actions">
+          <button class="btn btn-ghost btn-sm" data-country="US" data-enabled="true">Enable all</button>
+          <button class="btn btn-ghost btn-sm" data-country="US" data-enabled="false">Disable all</button>
+        </div>
+      </div>
+      <div class="region-grid" id="region-grid-us"></div>
+
+      <div class="region-country-header">
+        <h4>Canada</h4>
+        <div class="region-bulk-actions">
+          <button class="btn btn-ghost btn-sm" data-country="CA" data-enabled="true">Enable all</button>
+          <button class="btn btn-ghost btn-sm" data-country="CA" data-enabled="false">Disable all</button>
+        </div>
+      </div>
+      <div class="region-grid" id="region-grid-ca"></div>
+    </section>
+
+    <section class="admin-section">
+      <div class="panel-header" style="margin-bottom:18px;">
+        <h3>Cached renders</h3>
+        <input type="text" id="filter-input" placeholder="Filter by filename…" style="max-width:240px;" />
+      </div>
+      <p class="modal-sub" style="margin-bottom:20px;">
+        Every image here is reused across every user who matches that exact make/model/color/angle — that's the
+        whole cost-saving point. Delete one if it looks wrong; it'll regenerate fresh the next time someone needs it.
+      </p>
+      <div class="admin-grid" id="admin-grid"></div>
+    </section>
   </main>
 </div>
 
