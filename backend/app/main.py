@@ -103,8 +103,12 @@ async def _prewarm_loop():
             consecutive_failures += 1
 
 
+_prewarm_task: asyncio.Task | None = None
+
+
 @app.on_event("startup")
 def on_startup():
+    global _prewarm_task
     init_db()
     # Seed the runtime mock_db.json into the (likely empty, volume-mounted)
     # DATA_DIR on first boot only — never overwrite once it's there, since a
@@ -119,7 +123,25 @@ def on_startup():
         db.close()
 
     if config.PREWARM_ENABLED:
-        asyncio.create_task(_prewarm_loop())
+        _prewarm_task = asyncio.create_task(_prewarm_loop())
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """Explicitly cancels the pre-warm loop on a graceful shutdown (the
+    SIGTERM Coolify sends during a normal stop/redeploy). Without this, the
+    loop just gets killed mid-iteration whenever the process happens to
+    exit — which, during a rolling deploy where the new container can start
+    slightly before the old one fully stops, is exactly how two pre-warm
+    loops can end up briefly running at once, each unaware of the other and
+    both calling the API independently."""
+    global _prewarm_task
+    if _prewarm_task:
+        _prewarm_task.cancel()
+        try:
+            await _prewarm_task
+        except asyncio.CancelledError:
+            pass
 
 
 @app.get("/health")
